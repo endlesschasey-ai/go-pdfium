@@ -256,6 +256,7 @@ func (p *PdfiumImplementation) OpenDocument(request *requests.OpenDocument) (*re
 
 		res, err := p.Module.ExportedFunction("FPDF_LoadCustomDocument").Call(p.Context, *fileAccessPointer, cPasswordPointer)
 		if err != nil {
+			p.releaseFileReader(*nativeDoc.fileHandleRef)
 			return nil, err
 		}
 
@@ -270,6 +271,12 @@ func (p *PdfiumImplementation) OpenDocument(request *requests.OpenDocument) (*re
 	if doc == nil {
 		errorCode, err := p.Module.ExportedFunction("FPDF_GetLastError").Call(p.Context)
 		if err != nil {
+			if nativeDoc.fileHandleRef != nil {
+				p.releaseFileReader(*nativeDoc.fileHandleRef)
+			}
+			if dataPointer != nil {
+				p.Free(*dataPointer)
+			}
 			return nil, err
 		}
 
@@ -295,9 +302,7 @@ func (p *PdfiumImplementation) OpenDocument(request *requests.OpenDocument) (*re
 
 		// Cleanup when file loading didn't work.
 		if nativeDoc.fileHandleRef != nil {
-			p.Free(*p.fileReaders[*nativeDoc.fileHandleRef].FileAccess)
-			p.Free(*p.fileReaders[*nativeDoc.fileHandleRef].ParamPointer)
-			delete(p.fileReaders, *nativeDoc.fileHandleRef)
+			p.releaseFileReader(*nativeDoc.fileHandleRef)
 		}
 
 		if dataPointer != nil {
@@ -319,17 +324,52 @@ func (p *PdfiumImplementation) OpenDocument(request *requests.OpenDocument) (*re
 	}, nil
 }
 
-func (p *PdfiumImplementation) Close() error {
+func (p *PdfiumImplementation) releaseFileReader(index uint32) {
+	ref, ok := p.fileReaders[index]
+	delete(p.fileReaders, index)
+	FileReaders.Mutex.Lock()
+	delete(FileReaders.Refs, index)
+	FileReaders.Mutex.Unlock()
+	if !ok || ref == nil {
+		return
+	}
+	// Drop Go refs before WASM free: after Interrupt the module may already
+	// be closed, and Free can panic or fail.
+	if ref.FileAccess != nil {
+		ptr := ref.FileAccess
+		ref.FileAccess = nil
+		func() {
+			defer func() { _ = recover() }()
+			_ = p.Free(*ptr)
+		}()
+	}
+	if ref.ParamPointer != nil {
+		ptr := ref.ParamPointer
+		ref.ParamPointer = nil
+		func() {
+			defer func() { _ = recover() }()
+			_ = p.Free(*ptr)
+		}()
+	}
+}
+
+func (p *PdfiumImplementation) releaseRemainingFileReaders() {
+	for i := range p.fileReaders {
+		p.releaseFileReader(i)
+	}
+}
+
+func (p *PdfiumImplementation) Close() (err error) {
 	p.Lock()
 	defer p.Unlock()
+	defer p.releaseRemainingFileReaders()
 
 	for i := range p.documentRefs {
-		err := p.documentRefs[i].Close(p)
-		if err != nil {
-			return err
+		closeErr := p.documentRefs[i].Close(p)
+		delete(p.documentRefs, i)
+		if closeErr != nil && err == nil {
+			err = closeErr
 		}
-
-		delete(p.documentRefs, p.documentRefs[i].nativeRef)
 	}
 
 	for i := range p.pageRefs {
@@ -458,21 +498,7 @@ func (p *PdfiumImplementation) Close() error {
 		delete(p.glyphPathRefs, i)
 	}
 
-	for i := range p.fileReaders {
-		p.Free(*p.fileReaders[i].FileAccess)
-		p.Free(*p.fileReaders[i].ParamPointer)
-
-		// Cleanup file handle.
-		p.fileReaders[i].FileAccess = nil
-
-		delete(p.fileReaders, i)
-
-		FileReaders.Mutex.Lock()
-		delete(FileReaders.Refs, i)
-		FileReaders.Mutex.Unlock()
-	}
-
-	return nil
+	return err
 }
 
 func (p *PdfiumImplementation) getDocumentHandle(documentRef references.FPDF_DOCUMENT) (*DocumentHandle, error) {

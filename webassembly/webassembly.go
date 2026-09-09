@@ -270,8 +270,9 @@ func (p *pdfiumPool) GetInstanceWithContext(ctx goctx.Context) (pdfium.Pdfium, e
 	defer p.lock.Unlock()
 
 	newInstance := &pdfiumInstance{
-		worker: workerObject.(*worker),
-		lock:   &sync.Mutex{},
+		worker:          workerObject.(*worker),
+		lock:            &sync.Mutex{},
+		interruptCancel: workerObject.(*worker).Cancel,
 	}
 
 	instanceRef := uuid.New()
@@ -324,11 +325,20 @@ type pdfiumInstance struct {
 	instanceRef string
 	closed      bool
 	lock        *sync.Mutex
+
+	interruptMu     sync.Mutex
+	interruptCancel goctx.CancelFunc
+	interrupted     bool
 }
 
 // Close will close the instance and will clean up the underlying PDFium resources
 // by calling i.worker.plugin.Close().
 func (i *pdfiumInstance) Close() (err error) {
+	i.interruptMu.Lock()
+	interrupted := i.interrupted
+	i.interruptCancel = nil
+	i.interruptMu.Unlock()
+
 	i.lock.Lock()
 
 	if i.closed {
@@ -343,7 +353,7 @@ func (i *pdfiumInstance) Close() (err error) {
 	}()
 
 	defer func() {
-		if i.pool.reuseWorkers {
+		if i.pool.reuseWorkers && !interrupted {
 			i.pool.workerPool.ReturnObject(goctx.Background(), i.worker)
 		} else {
 			i.pool.workerPool.InvalidateObject(goctx.Background(), i.worker)
@@ -364,8 +374,17 @@ func (i *pdfiumInstance) Close() (err error) {
 // Kill will kill the actual subprocess and return the worker to the pool
 // so that the pool system can re-create the process.
 func (i *pdfiumInstance) Kill() (err error) {
-	// Kill should not be protected by a lock, since Kill is a last-effort
-	// to "recover" a broken process.
+	// Kill should not be protected by the API lock, since Kill is a last-effort
+	// to "recover" a broken process. Disable Interrupt first so this wrapper
+	// cannot cancel a worker after it has been replaced.
+	i.interruptMu.Lock()
+	if i.interruptCancel != nil {
+		i.interruptCancel()
+		i.interruptCancel = nil
+	}
+	i.interrupted = true
+	i.interruptMu.Unlock()
+
 	if i.closed {
 		return errors.New("instance is already closed")
 	}
