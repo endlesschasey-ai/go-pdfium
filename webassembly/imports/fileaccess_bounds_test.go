@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -57,9 +58,11 @@ func TestFileAccessRejectsGuestRangeBeforeRead(t *testing.T) {
 type chunkReader struct {
 	*strings.Reader
 	maxRead int
+	reads   int
 }
 
 func (r *chunkReader) Read(p []byte) (int, error) {
+	r.reads++
 	if len(p) > r.maxRead {
 		r.maxRead = len(p)
 	}
@@ -73,7 +76,11 @@ func TestFileAccessChunksLargeCallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader := &chunkReader{Reader: strings.NewReader(strings.Repeat("a", 100000))}
+	payload := make([]byte, 100000)
+	for i := range payload {
+		payload[i] = byte((i*37 + i/251) % 256)
+	}
+	reader := &chunkReader{Reader: strings.NewReader(string(payload))}
 	ref := &impl.FileReaderRef{Reader: reader, Size: uint64(reader.Len()), Module: mod}
 	impl.FileReaders.Mutex.Lock()
 	id := impl.FileReaders.Counter
@@ -90,6 +97,10 @@ func TestFileAccessChunksLargeCallback(t *testing.T) {
 	(&FPDF_FILEACCESS_CB{}).Call(ctx, mod, stack)
 	if stack[0] == 0 {
 		t.Fatal("valid callback failed")
+	}
+	delivered, ok := mod.Memory().Read(16, uint32(len(payload)))
+	if !ok || !bytes.Equal(delivered, payload) || reader.reads == 0 {
+		t.Fatalf("incomplete payload delivery: memory=%t reads=%d", ok, reader.reads)
 	}
 	if reader.maxRead > 65536 {
 		t.Fatalf("underlying read=%d exceeds 64KiB", reader.maxRead)
