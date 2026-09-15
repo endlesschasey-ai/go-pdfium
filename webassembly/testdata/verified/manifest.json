@@ -1,0 +1,393 @@
+[
+  {
+    "file": "valid-object-stream.pdf",
+    "bytes": 436,
+    "sha256": "280d4c3c03b26ac3d7429a5229a8feeb87e9c2e5ecba361c9fd39d356b17ee8b",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "broken-tree-object-stream.pdf",
+    "bytes": 392,
+    "sha256": "897c6c920413b5a6b7c1e3660c7359f548d6e6daf156e40a29bae0e150a9ffed",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "broken-tree-filter-raw-fallback.pdf",
+    "bytes": 434,
+    "sha256": "3a7589017111dd2244e8e88fea2c0bfff12868de58ecfcf6721832425e41dc39",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "valid-uncompressed-object-stream.pdf",
+    "bytes": 413,
+    "sha256": "6f6612b6b90b2e3b3faf5c0790db2d703a262b79b6a88fe31a4d32457a183396",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "truncated-tree-object-stream.pdf",
+    "bytes": 432,
+    "sha256": "c7c18cbd3e8af533ce12a853cb4a2d9f982ca366b0fab3743d31a46196643076",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "forged-root-count.pdf",
+    "bytes": 20331,
+    "sha256": "49e0bf7d7fd445f0be499b5424225c4809a1f7884f5c4c4d7aedf98531f8f2b0",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "interior-count-mismatch.pdf",
+    "bytes": 420,
+    "sha256": "473a45feb06b18f66425ad77854c89d934295f25620b8f7aaf00b73cf494994d",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "cycle.pdf",
+    "bytes": 329,
+    "sha256": "03792812647b95d8e552ddd3ff3c6010514cab83304387724526a5f1a68aa5d6",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "zero-count-nonempty.pdf",
+    "bytes": 329,
+    "sha256": "019d620cf223794517e725785397e0da28ec248b745c570a817865ae8c99e157",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "missing-count.pdf",
+    "bytes": 320,
+    "sha256": "f851d1651b179739cb09245bec9505997ed11825229320ca8d31e7f7e0572b79",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "compatibility_recovery"
+  },
+  {
+    "file": "missing-type.pdf",
+    "bytes": 316,
+    "sha256": "acc94528989ab3c2acf0f463f2adc23eb0ffdc5ab2198176b49008ffe9084b09",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "compatibility_recovery"
+  },
+  {
+    "file": "unknown-type.pdf",
+    "bytes": 336,
+    "sha256": "151fcf64918849fc61b985ca4413bb6f69d4a0cf61eb6e00bb1597354b29c24b",
+    "classification": "compatibility_recovery"
+  },
+  {
+    "file": "fractional-count.pdf",
+    "bytes": 331,
+    "sha256": "d43ae7e8445236f9c156e53e39fc9d5e01d4ef3afc3352091239afe5c10b715f",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "negative-count.pdf",
+    "bytes": 330,
+    "sha256": "1d63d84bb06bb3485f852edc4f80ff07e4d4ee8bc67f622959fd3fc49aea3c3e",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "string-count.pdf",
+    "bytes": 331,
+    "sha256": "269e3b17a8a2f2f8b264c4af4d1be8f0535152e67007ecbff75d0d4b31b65c67",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "page-with-kids.pdf",
+    "bytes": 328,
+    "sha256": "13df5f30421b46cdd8a51437e60133db3931d23523abf2e752f038f92a871532",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "duplicate-leaf.pdf",
+    "bytes": 335,
+    "sha256": "f077fa08beb2db987950cd98243d1b3f78beaeed253ed4fab4eca19a26fa38eb",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "direct-child.pdf",
+    "bytes": 274,
+    "sha256": "6070eb95ac7692cad31c26f6d78371ae3144f517683c88bd874fc33ef8ac162b",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "compatibility_recovery"
+  },
+  {
+    "file": "depth-257.pdf",
+    "bytes": 20772,
+    "sha256": "aeecd83eb171e08341b53c62b69279015dc8d0fc6f747d482ed352d23059ec72",
+    "classification": "resource_boundary"
+  },
+  {
+    "file": "valid-linearized.pdf",
+    "bytes": 11384,
+    "sha256": "ab49d0fa2790cecc932a2130a675058ff80aaedb453a7f9321e560d171f6cfff",
+    "pypdf_control": {
+      "pages": 3,
+      "width": 612.0,
+      "height": 792.0
+    },
+    "source": "go-pdfium a358424d1cbf shared_tests/testdata/linearized.pdf",
+    "source_sha256": "ab49d0fa2790cecc932a2130a675058ff80aaedb453a7f9321e560d171f6cfff",
+    "classification": "legal_control"
+  },
+  {
+    "file": "linearized-count-mismatch.pdf",
+    "bytes": 11384,
+    "sha256": "7638222cee00a4b1e56f4df1fe5f097420400681782f34c12e85076a0083f088",
+    "source": "go-pdfium a358424d1cbf shared_tests/testdata/linearized.pdf",
+    "source_sha256": "ab49d0fa2790cecc932a2130a675058ff80aaedb453a7f9321e560d171f6cfff",
+    "mutation": "same-length first header field replacement only",
+    "classification": "ignored_linearization_metadata_control"
+  },
+  {
+    "file": "linearized-first-page-mismatch.pdf",
+    "bytes": 11384,
+    "sha256": "57c7a38aa209666abaae76afbf746c6c228fa5ed65b94f448d32570965d29204",
+    "source": "go-pdfium a358424d1cbf shared_tests/testdata/linearized.pdf",
+    "source_sha256": "ab49d0fa2790cecc932a2130a675058ff80aaedb453a7f9321e560d171f6cfff",
+    "mutation": "same-length first header field replacement only",
+    "classification": "ignored_linearization_metadata_control"
+  },
+  {
+    "file": "valid-ascii85-object-stream.pdf",
+    "bytes": 453,
+    "sha256": "0a062e1572c889a0bd535f8df1c77efed83ca837c2c280ab48bcc1e3ef838808",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "truncated-ascii85-object-stream.pdf",
+    "bytes": 451,
+    "sha256": "f4e0660a50e45f9e9e1700f07813c89be04df644f281f5a108343ad95d310203",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "valid-hex-object-stream.pdf",
+    "bytes": 498,
+    "sha256": "87fa2efe2477d783183d46af06ba463bce0d7313a69ae4537beec242add44bc8",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "truncated-hex-object-stream.pdf",
+    "bytes": 497,
+    "sha256": "a941724a7a35cd14bd8e1d18d1144d90ee6807923d2cd8496100a9b82e81679a",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "valid-runlength-object-stream.pdf",
+    "bytes": 440,
+    "sha256": "81ab0d3f3f6bcbc8cb37fb3bb6d736e5b617c39eeee90e3eaa97c8951ad640e4",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "truncated-runlength-object-stream.pdf",
+    "bytes": 439,
+    "sha256": "1feb9e2590abd7c2f0b3167ca64988b7eccfbf66fc35958ab95d4a7cc7a9e72b",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "valid-lzw-object-stream.pdf",
+    "bytes": 442,
+    "sha256": "c61a3a546d9b2513d778a5d40f7079c7f76503dd83b3a775b8d90ea7e5202af7",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "truncated-lzw-object-stream.pdf",
+    "bytes": 441,
+    "sha256": "bff8255672b96562b8210a69990771d2a80b8ae3efe44d869e6aa376c663b20f",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "empty-filter-array.pdf",
+    "bytes": 424,
+    "sha256": "9a5fbfce53724c33dae8694b35b4be53a89e239217f88e31adec7f3c50cfd285",
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    },
+    "classification": "legal_control"
+  },
+  {
+    "file": "null-filter.pdf",
+    "bytes": 426,
+    "sha256": "3b0b9164e43df406b2bc81e3ca17eed33b0a09af6fa6bb1797b53fdbd427391a",
+    "classification": "legal_control"
+  },
+  {
+    "file": "unresolved-optional-filter.pdf",
+    "bytes": 428,
+    "sha256": "5d9bcc12c03856a5764fa51a36fa39c085adaf0d54006fce91fe8deb0c42351a",
+    "classification": "legal_control"
+  },
+  {
+    "file": "nonzero-first-page-mapping.pdf",
+    "bytes": 11384,
+    "sha256": "f901a196c94a8209b7a9ee7e346b480abbe0421ec7e6a880b88504453286a993",
+    "pypdf_control": {
+      "pages": 3,
+      "width": 612.0,
+      "height": 792.0
+    },
+    "source": "go-pdfium a358424d1cbf shared_tests/testdata/linearized.pdf",
+    "source_sha256": "ab49d0fa2790cecc932a2130a675058ff80aaedb453a7f9321e560d171f6cfff",
+    "mutation": "same-length page tree reorder, P=1 and OpenAction=31; O=31 and all byte offsets preserved; full hint-table conformance not independently validated",
+    "classification": "mapping_control_not_full_linearization_acceptance"
+  },
+  {
+    "file": "negative-overflow.pdf",
+    "bytes": 431,
+    "sha256": "9efc1e68e8d6b92e96de3984d10c0fcde449b48201cef77221613618abae6cd1",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "positive-overflow.pdf",
+    "bytes": 430,
+    "sha256": "15ed910e43a91a68c35240812195895e80209d3a2601296a166be639641897f2",
+    "classification": "explicit_failure"
+  },
+  {
+    "file": "zero-empty-branch.pdf",
+    "bytes": 421,
+    "sha256": "2e9f269fddec0b3aa0315dc74f7962f398dd53e53e83d4cadd0813cfb9150967",
+    "classification": "legal_control"
+  },
+  {
+    "file": "encrypted-object-stream-normal-xref.pdf",
+    "bytes": 1109,
+    "sha256": "9ec5e1ae694a16cc785ca64a069c3b747deefd18c92f6c8afd64394ff82926d0",
+    "classification": "encrypted_recovery_control",
+    "password": "verified-test",
+    "mutation": "AES-128 fixed zero IV; unrelated ObjStm; startxref 0 only in recovery variant"
+  },
+  {
+    "file": "encrypted-object-stream-rebuilt-xref.pdf",
+    "bytes": 1107,
+    "sha256": "d6dc5239f79d3a9b1524607c2fa797cf72e944ecff136747c1e7a3df134c1fe5",
+    "classification": "encrypted_recovery_control",
+    "password": "verified-test",
+    "mutation": "AES-128 fixed zero IV; unrelated ObjStm; startxref 0 only in recovery variant"
+  },
+  {
+    "file": "rebuilt-valid-object-stream.pdf",
+    "bytes": 434,
+    "sha256": "9c861368bd810ede00ea05ca090280339d07db4f2a4f7d9bf6a9930d478e4bc0",
+    "source": "valid-object-stream.pdf",
+    "source_sha256": "280d4c3c03b26ac3d7429a5229a8feeb87e9c2e5ecba361c9fd39d356b17ee8b",
+    "mutation": "only startxref replaced with 0",
+    "expected_verified_status": 0,
+    "expected_pages": 1
+  },
+  {
+    "file": "rebuilt-broken-tree-filter-raw-fallback.pdf",
+    "bytes": 432,
+    "sha256": "98feaa96c30322fe2205664827456b5cefe68dcb4f3ee1d4e5204f311c03397e",
+    "source": "broken-tree-filter-raw-fallback.pdf",
+    "source_sha256": "3a7589017111dd2244e8e88fea2c0bfff12868de58ecfcf6721832425e41dc39",
+    "mutation": "only startxref replaced with 0",
+    "expected_verified_status": 10,
+    "expected_pages": 0
+  },
+  {
+    "file": "negative-truncated-count.pdf",
+    "bytes": 677,
+    "sha256": "194bd1a0838f1bdb141c0ae47a9514f8998cba2d9dc6766dfe23dc06228e3d25",
+    "count_token_bytes": 257,
+    "original_count_integer": -1,
+    "expected_verified_status": 3,
+    "expected_pages": 0
+  },
+  {
+    "file": "positive-truncated-count.pdf",
+    "bytes": 677,
+    "sha256": "510063687c583e75c7a6c81bf5baf38abe8c3d876178ac82818954099b62acfd",
+    "count_token_bytes": 257,
+    "original_count_integer": 1,
+    "expected_verified_status": 3,
+    "expected_pages": 0
+  },
+  {
+    "file": "exact-256-zero-count.pdf",
+    "bytes": 676,
+    "sha256": "0abb93594ba5b1217491b2fd6a2b00ea0b332e1be3cdcd1ffa7553451a6e1295",
+    "count_token_bytes": 256,
+    "original_count_integer": 0,
+    "expected_verified_status": 0,
+    "expected_pages": 1
+  },
+  {
+    "file": "valid-compressed-xref.pdf",
+    "bytes": 349,
+    "sha256": "f3af4e711d39bb9818717e80c3c870e140ba3f4227945f21e69ff0c8808aba5d",
+    "startxref": 186,
+    "xref_stream_object": 4,
+    "ordinary_tree_objects": [
+      1,
+      2,
+      3
+    ],
+    "zlib_stream_complete": true,
+    "expected_verified_status": 0,
+    "expected_pages": 1,
+    "pypdf_control": {
+      "pages": 1,
+      "width": 300.0,
+      "height": 200.0
+    }
+  },
+  {
+    "file": "truncated-compressed-xref.pdf",
+    "bytes": 345,
+    "sha256": "4e095ef0d9dedae958c69545f472f3ac0e5fe5a19fbad1dee87c49ef9dfbe368",
+    "startxref": 186,
+    "xref_stream_object": 4,
+    "ordinary_tree_objects": [
+      1,
+      2,
+      3
+    ],
+    "zlib_stream_complete": false,
+    "expected_verified_status": 10,
+    "expected_pages": 0
+  }
+]

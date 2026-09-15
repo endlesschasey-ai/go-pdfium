@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "wasm": {
+    "bytes": 5232574,
+    "sha256": "4d6cd1caa6a9ae8ea15bc9674ac2b3442d582f291ac2cd1b145ee7c8729ad034",
+    "export_count": 485,
+    "verified_export": {
+      "params": [
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i32"
+      ],
+      "present": true,
+      "results": [
+        "i32"
+      ]
+    },
+    "memories": {
+      "memory": {
+        "bounded": true,
+        "max_pages": 32768,
+        "min_pages": 287
+      }
+    }
+  },
+  "pdfium_commit": "91b9d569b34be4f38eed7b3c49b227356c3aadad",
+  "chromium_build_commit": "613f5c13bccbc15bd7ce8da9acb13ac06459f8cb",
+  "depot_tools_commit": "46afe8bfbb57583700c01d1584e7a49638d586ed",
+  "image": "emscripten/emsdk@sha256:d050f4c2adf6070cffde3384e78244b38c393834d69ecb044d1d913d5266426e",
+  "build_recipe_commit": "54a00c0320a60869e92b1cb76da0316be378bfe6",
+  "license_recipe_commit": "c90fa676ecbcc5a7be6ced4bd9077c76ef18a021",
+  "build_exit": 1,
+  "build_failure": "post-link unmapped HarfBuzz license; separately corrected collection passed",
+  "build_seconds": 2633.9836354589997,
+  "peak_memory_bytes": 2316746752,
+  "sdk": {
+    "emcc": "5.0.5 bc569045b14c3fa7b960734ed2c50da7b20adea4",
+    "clang": "23.0.0git 862ceaa793f8f8e86914595cb518ffbfd182dea7",
+    "wasm_opt": "129 version_129-6-g0bb686f83",
+    "manifest_sha256": "cc014b8f1c0283d32a10fbed8afb80fda1eaf1c53923d2ac393a48401dfb065e"
+  },
+  "gn_binary_sha256": "b57b07b452e2e68ee07fde47c22134d82dfe919b7e3eb77ea3c78f7eb0759812",
+  "ninja_binary_sha256": "09f0e5a8a2cf762b24b4d3ed464ffb2529e650d2efc36bab31da36aa93791efc",
+  "acceptance": {
+    "matrix": 46,
+    "lifecycle": 3,
+    "ordinary_encrypted": 2,
+    "normal": "PASS",
+    "race": "PASS",
+    "skip": 0,
+    "fail": 0
+  },
+  "second_identical_build": false
+}

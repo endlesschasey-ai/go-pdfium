@@ -1,0 +1,1202 @@
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -218,6 +218,7 @@
+     "public/fpdf_sysfontinfo.h",
+     "public/fpdf_text.h",
+     "public/fpdf_transformpage.h",
++    "public/fpdf_verified.h",
+     "public/fpdfview.h",
+   ]
+ }
+--- a/core/fpdfapi/parser/cpdf_document.cpp
++++ b/core/fpdfapi/parser/cpdf_document.cpp
+@@ -200,6 +200,206 @@
+   return parser_ ? parser_->ParseIndirectObject(objnum) : nullptr;
+ }
+ 
++
++void CPDF_Document::EnableVerifiedPageTree(uint32_t max_depth,
++                                          uint32_t max_visits,
++                                          uint32_t max_pages) {
++  CHECK(!parser_);
++  verified_load_ = true;
++  verified_max_depth_ = max_depth;
++  verified_max_visits_ = max_visits;
++  verified_max_pages_ = max_pages;
++}
++
++bool CPDF_Document::FailVerification(uint32_t status) {
++  if (!verified_terminal_failure_) {
++    verified_result_.status = status;
++    verified_terminal_failure_ = true;
++  }
++  return false;
++}
++
++bool CPDF_Document::ValidateOriginalPageTree() {
++  // Retaining dictionaries preserves identity when legacy traversal promotes a
++  // direct child into the document's indirect-object table.
++  struct Frame {
++    RetainPtr<const CPDF_Dictionary> dict;
++    RetainPtr<const CPDF_Array> kids;
++    size_t next = 0;
++    uint32_t leaves = 0;
++    std::optional<uint32_t> declared_count;
++  };
++  struct Inference {
++    RetainPtr<const CPDF_Dictionary> dict;
++    bool branch;
++  };
++  std::vector<Frame> stack;
++  std::vector<Inference> inferred;
++  std::vector<std::pair<RetainPtr<const CPDF_Dictionary>, uint32_t>> missing_counts;
++  std::set<const CPDF_Dictionary*> active;
++  std::set<const CPDF_Dictionary*> visited;
++  auto visit = [&]() {
++    if (verified_result_.visits >= verified_max_visits_) {
++      return FailVerification(8);
++    }
++    ++verified_result_.visits;
++    return true;
++  };
++  auto resolve = [&](RetainPtr<const CPDF_Object> object) {
++    std::set<uint32_t> references;
++    while (object && object->IsReference()) {
++      if (!visit()) {
++        return RetainPtr<const CPDF_Object>();
++      }
++      uint32_t number = object->AsReference()->GetRefObjNum();
++      if (!references.insert(number).second) {
++        FailVerification(5);
++        return RetainPtr<const CPDF_Object>();
++      }
++      object = GetOrParseIndirectObject(number);
++      if (parser_->HasStrictObjectDecodeFailure()) {
++        FailVerification(10);
++        return RetainPtr<const CPDF_Object>();
++      }
++    }
++    return object;
++  };
++  auto push = [&](RetainPtr<const CPDF_Object> object, bool root) {
++    if (stack.size() >= verified_max_depth_) {
++      return FailVerification(7);
++    }
++    if (!visit()) {
++      return false;
++    }
++    object = resolve(std::move(object));
++    if (!object || !object->IsDictionary()) {
++      return FailVerification(root ? 1 : 2);
++    }
++    RetainPtr<const CPDF_Dictionary> dict(object->AsDictionary());
++    if (active.contains(dict.Get())) {
++      return FailVerification(5);
++    }
++    if (!visited.insert(dict.Get()).second) {
++      return FailVerification(6);
++    }
++    bool branch = dict->KeyExist("Kids");
++    auto type = resolve(dict->GetObjectFor("Type"));
++    if (verified_terminal_failure_) {
++      return false;
++    }
++    ByteString name = type && type->IsName() ? type->GetString() : ByteString();
++    if ((name == "Page" && branch) || (name == "Pages" && !branch) ||
++        (root && !branch)) {
++      return FailVerification(2);
++    }
++    if (name != "Page" && name != "Pages") {
++      inferred.push_back({dict, branch});
++    }
++    Frame frame;
++    frame.dict = dict;
++    if (branch) {
++      auto kids = resolve(dict->GetObjectFor("Kids"));
++      if (!kids || !kids->IsArray()) {
++        return FailVerification(2);
++      }
++      frame.kids = RetainPtr<const CPDF_Array>(kids->AsArray());
++    }
++    if (branch && dict->KeyExist("Count")) {
++      auto count = resolve(dict->GetObjectFor("Count"));
++      if (!count || !count->IsNumber() || !count->AsNumber()->IsInteger() ||
++          !count->AsNumber()->IsLosslessInteger() || count->GetInteger() < 0) {
++        return FailVerification(3);
++      }
++      frame.declared_count = static_cast<uint32_t>(count->GetInteger());
++    }
++    if (!branch) {
++      if (verified_leaves_.size() >= verified_max_pages_) {
++        return FailVerification(9);
++      }
++      verified_leaves_.push_back(dict);
++      frame.leaves = 1;
++    }
++    active.insert(dict.Get());
++    stack.push_back(std::move(frame));
++    return true;
++  };
++  if (!push(root_dict_->GetObjectFor("Pages"), true)) {
++    return false;
++  }
++  while (!stack.empty()) {
++    Frame& frame = stack.back();
++    if (frame.kids && frame.next < frame.kids->size()) {
++      auto child = frame.kids->GetObjectAt(frame.next++);
++      if (!push(std::move(child), false)) {
++        return false;
++      }
++      continue;
++    }
++    if (frame.declared_count && *frame.declared_count != frame.leaves) {
++      return FailVerification(4);
++    }
++    if (frame.kids && !frame.declared_count) {
++      missing_counts.emplace_back(frame.dict, frame.leaves);
++    }
++    uint32_t leaves = frame.leaves;
++    active.erase(frame.dict.Get());
++    stack.pop_back();
++    if (!stack.empty()) {
++      if (leaves > verified_max_pages_ - stack.back().leaves) {
++        return FailVerification(9);
++      }
++      stack.back().leaves += leaves;
++    }
++  }
++  if (parser_->HasStrictObjectDecodeFailure()) {
++    return FailVerification(10);
++  }
++  // Only mutate after all original Count and graph checks passed.
++  for (const auto& entry : inferred) {
++    const_cast<CPDF_Dictionary*>(entry.dict.Get())->SetNewFor<CPDF_Name>(
++        "Type", entry.branch ? "Pages" : "Page");
++    ++verified_result_.recoveries;
++  }
++  for (const auto& [dict, count] : missing_counts) {
++    const_cast<CPDF_Dictionary*>(dict.Get())->SetNewFor<CPDF_Number>(
++        "Count", static_cast<int>(count));
++    ++verified_result_.recoveries;
++  }
++  verified_result_.page_count = static_cast<uint32_t>(verified_leaves_.size());
++  verified_tree_valid_ = true;
++  return true;
++}
++
++bool CPDF_Document::CheckVerifiedPageMapping() {
++  if (GetPageCount() < 0 ||
++      static_cast<size_t>(GetPageCount()) != verified_leaves_.size()) {
++    return FailVerification(11);
++  }
++  for (size_t i = 0; i < verified_leaves_.size(); ++i) {
++    if (GetPageDictionary(static_cast<int>(i)).Get() != verified_leaves_[i].Get()) {
++      return FailVerification(11);
++    }
++    if (parser_->HasStrictObjectDecodeFailure()) {
++      return FailVerification(10);
++    }
++  }
++  verified_result_.status = 0;
++  return true;
++}
++
++bool CPDF_Document::FinalizeVerifiedLoad() {
++  if (parser_ && parser_->HasStrictObjectDecodeFailure()) {
++    return FailVerification(10);
++  }
++  if (verified_terminal_failure_) {
++    return false;
++  }
++  if (!root_dict_) {
++    return FailVerification(1);
++  }
++  return verified_tree_valid_ && CheckVerifiedPageMapping();
++}
++
+ bool CPDF_Document::TryInit() {
+   SetLastObjNum(parser_->GetLastObjNum());
+ 
+@@ -209,7 +409,25 @@
+     root_dict_ = pRootObj->GetMutableDict();
+   }
+ 
++  if (verified_load_) {
++    if (verified_terminal_failure_ || parser_->HasStrictObjectDecodeFailure()) {
++      return FailVerification(parser_->HasStrictObjectDecodeFailure() ? 10
++                                                                    : verified_result_.status);
++    }
++    // An unavailable root may be recovered by rebuilding xrefs. No tree fields
++    // have been inspected or normalized at this point.
++    if (!root_dict_) {
++      return false;
++    }
++    if (!verified_tree_valid_ && !ValidateOriginalPageTree()) {
++      return false;
++    }
++
++  }
+   LoadPages();
++  if (verified_load_ && !CheckVerifiedPageMapping()) {
++    return false;
++  }
+   return GetRoot() && GetPageCount() > 0;
+ }
+ 
+@@ -220,6 +438,9 @@
+     SetParser(std::make_unique<CPDF_Parser>(this));
+   }
+ 
++  if (verified_load_) {
++    parser_->EnableStrictObjectStreamDecoding();
++  }
+   return HandleLoadResult(
+       parser_->StartParse(std::move(pFileAccess), password));
+ }
+--- a/core/fpdfapi/parser/cpdf_document.h
++++ b/core/fpdfapi/parser/cpdf_document.h
+@@ -80,6 +80,18 @@
+    private:
+     UnownedPtr<CPDF_Document> doc_;
+   };
++
++  // Verified loading is opt-in and must be enabled before LoadDoc().
++  struct VerifiedResult {
++    uint32_t status = 12;
++    uint32_t page_count = 0;
++    uint32_t visits = 0;
++    uint32_t recoveries = 0;
++  };
++  void EnableVerifiedPageTree(uint32_t max_depth, uint32_t max_visits,
++                              uint32_t max_pages);
++  const VerifiedResult& GetVerifiedResult() const { return verified_result_; }
++  bool FinalizeVerifiedLoad();
+ 
+   static constexpr int kPageMaxNum = 0xFFFFF;
+ 
+@@ -170,6 +182,10 @@
+   void ResizePageListForTesting(size_t size);
+ 
+  private:
++  bool ValidateOriginalPageTree();
++  bool CheckVerifiedPageMapping();
++  bool FailVerification(uint32_t status);
++
+   class StockFontClearer {
+    public:
+     FX_STACK_ALLOCATED();
+@@ -213,6 +229,15 @@
+   bool InsertNewPage(int iPage, RetainPtr<CPDF_Dictionary> pPageDict);
+   void ResetTraversal();
+   CPDF_Parser::Error HandleLoadResult(CPDF_Parser::Error error);
++
++  bool verified_load_ = false;
++  bool verified_terminal_failure_ = false;
++  bool verified_tree_valid_ = false;
++  uint32_t verified_max_depth_ = 0;
++  uint32_t verified_max_visits_ = 0;
++  uint32_t verified_max_pages_ = 0;
++  VerifiedResult verified_result_;
++  std::vector<RetainPtr<const CPDF_Dictionary>> verified_leaves_;
+ 
+   std::unique_ptr<CPDF_Parser> parser_;
+   RetainPtr<CPDF_Dictionary> root_dict_;
+--- a/core/fpdfapi/parser/cpdf_number.cpp
++++ b/core/fpdfapi/parser/cpdf_number.cpp
+@@ -6,6 +6,7 @@
+ 
+ #include "core/fpdfapi/parser/cpdf_number.h"
+ 
++#include <limits>
+ #include <sstream>
+ 
+ #include "core/fpdfapi/edit/cpdf_contentstream_write_utils.h"
+@@ -13,6 +14,37 @@
+ #include "core/fxcrt/fx_string_wrappers.h"
+ 
+ namespace {
++
++bool IsLosslessIntegerToken(ByteStringView str) {
++  if (str.IsEmpty()) {
++    return false;
++  }
++  size_t position = 0;
++  bool negative = false;
++  if (str[0] == '+' || str[0] == '-') {
++    negative = str[0] == '-';
++    ++position;
++  }
++  if (position == str.GetLength()) {
++    return false;
++  }
++  const uint32_t limit =
++      static_cast<uint32_t>(std::numeric_limits<int32_t>::max()) +
++      (negative ? 1u : 0u);
++  uint32_t magnitude = 0;
++  for (; position < str.GetLength(); ++position) {
++    const auto ch = str.CharAt(position);
++    if (ch < '0' || ch > '9') {
++      return false;
++    }
++    const uint32_t digit = ch - '0';
++    if (magnitude > (limit - digit) / 10) {
++      return false;
++    }
++    magnitude = magnitude * 10 + digit;
++  }
++  return true;
++}
+ 
+ ByteString FloatToString(float value) {
+   fxcrt::ostringstream sstream;
+@@ -26,9 +58,12 @@
+ 
+ CPDF_Number::CPDF_Number(int value) : number_(value) {}
+ 
+-CPDF_Number::CPDF_Number(float value) : number_(value) {}
++CPDF_Number::CPDF_Number(float value)
++    : number_(value), is_lossless_integer_(false) {}
+ 
+-CPDF_Number::CPDF_Number(ByteStringView str) : number_(str) {}
++CPDF_Number::CPDF_Number(ByteStringView str, bool token_complete)
++    : number_(str),
++      is_lossless_integer_(token_complete && IsLosslessIntegerToken(str)) {}
+ 
+ CPDF_Number::~CPDF_Number() = default;
+ 
+@@ -37,9 +72,11 @@
+ }
+ 
+ RetainPtr<CPDF_Object> CPDF_Number::Clone() const {
+-  return number_.IsInteger()
+-             ? pdfium::MakeRetain<CPDF_Number>(number_.GetSigned())
+-             : pdfium::MakeRetain<CPDF_Number>(number_.GetFloat());
++  auto clone = number_.IsInteger()
++                   ? pdfium::MakeRetain<CPDF_Number>(number_.GetSigned())
++                   : pdfium::MakeRetain<CPDF_Number>(number_.GetFloat());
++  clone->is_lossless_integer_ = is_lossless_integer_;
++  return clone;
+ }
+ 
+ float CPDF_Number::GetNumber() const {
+@@ -56,6 +93,7 @@
+ 
+ void CPDF_Number::SetString(const ByteString& str) {
+   number_ = FX_Number(str.AsStringView());
++  is_lossless_integer_ = IsLosslessIntegerToken(str.AsStringView());
+ }
+ 
+ ByteString CPDF_Number::GetString() const {
+--- a/core/fpdfapi/parser/cpdf_number.h
++++ b/core/fpdfapi/parser/cpdf_number.h
+@@ -28,15 +28,19 @@
+                const CPDF_Encryptor* encryptor) const override;
+ 
+   bool IsInteger() const { return number_.IsInteger(); }
++  // True only when GetInteger() preserves the complete original integer token.
++  // Verified metadata checks must not accept a token overflow normalized to zero.
++  bool IsLosslessInteger() const { return is_lossless_integer_; }
+ 
+  private:
+   CPDF_Number();
+   explicit CPDF_Number(int value);
+   explicit CPDF_Number(float value);
+-  explicit CPDF_Number(ByteStringView str);
++  explicit CPDF_Number(ByteStringView str, bool token_complete = true);
+   ~CPDF_Number() override;
+ 
+   FX_Number number_;
++  bool is_lossless_integer_ = true;
+ };
+ 
+ inline CPDF_Number* ToNumber(CPDF_Object* obj) {
+--- a/core/fpdfapi/parser/cpdf_object_stream.cpp
++++ b/core/fpdfapi/parser/cpdf_object_stream.cpp
+@@ -55,20 +55,31 @@
+ 
+ //  static
+ std::unique_ptr<CPDF_ObjectStream> CPDF_ObjectStream::Create(
+-    RetainPtr<const CPDF_Stream> stream) {
++    RetainPtr<const CPDF_Stream> stream,
++    bool strict_decode,
++    bool* decode_failure) {
+   if (!IsObjectStream(stream.Get())) {
+     return nullptr;
+   }
+ 
+   // Protected constructor.
+-  return pdfium::WrapUnique(new CPDF_ObjectStream(std::move(stream)));
++  auto result = pdfium::WrapUnique(
++      new CPDF_ObjectStream(std::move(stream), strict_decode));
++  if (!result->decoded_) {
++    if (decode_failure) {
++      *decode_failure = true;
++    }
++    return nullptr;
++  }
++  return result;
+ }
+ 
+-CPDF_ObjectStream::CPDF_ObjectStream(RetainPtr<const CPDF_Stream> obj_stream)
++CPDF_ObjectStream::CPDF_ObjectStream(RetainPtr<const CPDF_Stream> obj_stream,
++                                       bool strict_decode)
+     : stream_acc_(pdfium::MakeRetain<CPDF_StreamAcc>(obj_stream)),
+       first_object_offset_(obj_stream->GetDict()->GetIntegerFor("First")) {
+   DCHECK(IsObjectStream(obj_stream.Get()));
+-  Init(obj_stream.Get());
++  decoded_ = Init(obj_stream.Get(), strict_decode);
+ }
+ 
+ CPDF_ObjectStream::~CPDF_ObjectStream() = default;
+@@ -94,8 +105,14 @@
+   return result;
+ }
+ 
+-void CPDF_ObjectStream::Init(const CPDF_Stream* stream) {
+-  stream_acc_->LoadAllDataFiltered();
++bool CPDF_ObjectStream::Init(const CPDF_Stream* stream, bool strict_decode) {
++  if (strict_decode) {
++    if (!stream_acc_->LoadAllDataFilteredStrict()) {
++      return false;
++    }
++  } else {
++    stream_acc_->LoadAllDataFiltered();
++  }
+   data_stream_ =
+       pdfium::MakeRetain<CFX_ReadOnlySpanStream>(stream_acc_->GetSpan());
+ 
+@@ -114,6 +131,7 @@
+ 
+     object_info_.emplace_back(obj_num, obj_offset);
+   }
++  return true;
+ }
+ 
+ RetainPtr<CPDF_Object> CPDF_ObjectStream::ParseObjectAtOffset(
+--- a/core/fpdfapi/parser/cpdf_object_stream.h
++++ b/core/fpdfapi/parser/cpdf_object_stream.h
+@@ -32,7 +32,9 @@
+   };
+ 
+   static std::unique_ptr<CPDF_ObjectStream> Create(
+-      RetainPtr<const CPDF_Stream> stream);
++      RetainPtr<const CPDF_Stream> stream,
++      bool strict_decode = false,
++      bool* decode_failure = nullptr);
+ 
+   ~CPDF_ObjectStream();
+ 
+@@ -42,9 +44,9 @@
+   const std::vector<ObjectInfo>& object_info() const { return object_info_; }
+ 
+  private:
+-  explicit CPDF_ObjectStream(RetainPtr<const CPDF_Stream> stream);
++  CPDF_ObjectStream(RetainPtr<const CPDF_Stream> stream, bool strict_decode);
+ 
+-  void Init(const CPDF_Stream* stream);
++  bool Init(const CPDF_Stream* stream, bool strict_decode);
+   RetainPtr<CPDF_Object> ParseObjectAtOffset(
+       CPDF_IndirectObjectHolder* pObjList,
+       uint32_t object_offset) const;
+@@ -52,6 +54,7 @@
+   // Must outlive `data_stream_`.
+   RetainPtr<CPDF_StreamAcc> const stream_acc_;
+   RetainPtr<IFX_SeekableReadStream> data_stream_;
++  bool decoded_ = false;
+   int first_object_offset_ = 0;
+   std::vector<ObjectInfo> object_info_;
+ };
+--- a/core/fpdfapi/parser/cpdf_parser.cpp
++++ b/core/fpdfapi/parser/cpdf_parser.cpp
+@@ -811,6 +811,9 @@
+       if (obj_num <= kMaxObjectNumber) {
+         cross_ref_table->AddNormal(obj_num, gen_num, /*is_object_stream=*/false,
+                                    obj_pos);
++        // Recovery scans raw stream bytes before the encryption handler exists.
++        // These entries are provisional: GetObjectStream() decrypts and strictly
++        // decodes any object stream needed by the document before caching it.
+         const auto object_stream =
+             CPDF_ObjectStream::Create(std::move(pStream));
+         if (object_stream) {
+@@ -891,7 +894,14 @@
+ 
+   uint32_t total_width = dwAccWidth.ValueOrDie();
+   auto pAcc = pdfium::MakeRetain<CPDF_StreamAcc>(pStream);
+-  pAcc->LoadAllDataFiltered();
++  if (strict_object_stream_decode_) {
++    if (!pAcc->LoadAllDataFilteredStrict()) {
++      strict_object_decode_failed_ = true;
++      return false;
++    }
++  } else {
++    pAcc->LoadAllDataFiltered();
++  }
+ 
+   pdfium::span<const uint8_t> data_span = pAcc->GetSpan();
+   uint32_t segindex = 0;
+@@ -1133,7 +1143,8 @@
+   }
+ 
+   std::unique_ptr<CPDF_ObjectStream> objs_stream =
+-      CPDF_ObjectStream::Create(ToStream(object));
++      CPDF_ObjectStream::Create(ToStream(object), strict_object_stream_decode_,
++                                &strict_object_decode_failed_);
+   const CPDF_ObjectStream* result = objs_stream.get();
+   object_stream_map_[object_number] = std::move(objs_stream);
+ 
+--- a/core/fpdfapi/parser/cpdf_parser.h
++++ b/core/fpdfapi/parser/cpdf_parser.h
+@@ -73,6 +73,10 @@
+                    const ByteString& password);
+   Error StartLinearizedParse(RetainPtr<CPDF_ReadValidator> validator,
+                              const ByteString& password);
++
++  // Enable before StartParse; failure remains sticky through xref recovery.
++  void EnableStrictObjectStreamDecoding() { strict_object_stream_decode_ = true; }
++  bool HasStrictObjectDecodeFailure() const { return strict_object_decode_failed_; }
+ 
+   ByteString GetPassword() const { return password_; }
+ 
+@@ -192,6 +196,8 @@
+   std::unique_ptr<ParsedObjectsHolder> owned_objects_holder_;
+   UnownedPtr<ParsedObjectsHolder> objects_holder_;
+ 
++  bool strict_object_stream_decode_ = false;
++  bool strict_object_decode_failed_ = false;
+   bool has_parsed_ = false;
+   bool xref_stream_ = false;
+   bool xref_table_rebuilt_ = false;
+--- a/core/fpdfapi/parser/cpdf_stream_acc.cpp
++++ b/core/fpdfapi/parser/cpdf_stream_acc.cpp
+@@ -40,6 +40,46 @@
+   } else {
+     ProcessFilteredData(estimated_size, bImageAcc);
+   }
++}
++
++bool CPDF_StreamAcc::LoadAllDataFilteredStrict() {
++  // An owned empty result prevents GetSpan() from exposing raw memory data
++  // after any failure. This path does not share the tolerant fallback.
++  data_ = DataVector<uint8_t>();
++  if (!stream_) {
++    return false;
++  }
++  // ISO 32000-1 Table 5 permits zero filters. Section 7.3.9 makes a
++  // null-valued optional dictionary entry equivalent to an absent entry.
++  auto filter = stream_->GetDict()->GetDirectObjectFor("Filter");
++  const auto decoders = !filter || filter->IsNull()
++                            ? std::optional<DecoderArray>(DecoderArray())
++                            : GetDecoderArray(stream_->GetDict());
++  if (!decoders.has_value()) {
++    return false;
++  }
++  DataVector<uint8_t> raw;
++  pdfium::span<const uint8_t> source;
++  if (stream_->IsMemoryBased()) {
++    source = stream_->GetInMemoryRawData();
++  } else {
++    raw = ReadRawStream();
++    source = pdfium::span(raw);
++  }
++  if (source.size() != stream_->GetRawSize()) {
++    return false;
++  }
++  if (decoders->empty()) {
++    data_ = DataVector<uint8_t>(source.begin(), source.end());
++    return true;
++  }
++  auto result = PDF_DataDecode(source, 0, false, *decoders,
++                               /*strict_decode=*/true);
++  if (!result.has_value() || !result->image_encoding.IsEmpty()) {
++    return false;
++  }
++  data_ = std::move(result->data);
++  return true;
+ }
+ 
+ void CPDF_StreamAcc::LoadAllDataFiltered() {
+--- a/core/fpdfapi/parser/cpdf_stream_acc.h
++++ b/core/fpdfapi/parser/cpdf_stream_acc.h
+@@ -29,6 +29,8 @@
+   CPDF_StreamAcc& operator=(const CPDF_StreamAcc&) = delete;
+ 
+   void LoadAllDataFiltered();
++  // Metadata-only strict path: never substitute encoded bytes on failure.
++  bool LoadAllDataFilteredStrict();
+   void LoadAllDataFilteredWithEstimatedSize(uint32_t estimated_size);
+   void LoadAllDataImageAcc(uint32_t estimated_size);
+   void LoadAllDataRaw();
+--- a/core/fpdfapi/parser/cpdf_syntax_parser.cpp
++++ b/core/fpdfapi/parser/cpdf_syntax_parser.cpp
+@@ -179,6 +179,7 @@
+ 
+ CPDF_SyntaxParser::WordType CPDF_SyntaxParser::GetNextWordInternal() {
+   word_size_ = 0;
++  word_truncated_ = false;
+   WordType word_type = WordType::kNumber;
+ 
+   ToNextWord();
+@@ -204,6 +205,8 @@
+ 
+         if (word_size_ < sizeof(word_buffer_) - 1) {
+           word_buffer_[word_size_++] = ch;
++        } else {
++          word_truncated_ = true;
+         }
+       }
+     } else if (ch == '<') {
+@@ -233,6 +236,8 @@
+   while (true) {
+     if (word_size_ < sizeof(word_buffer_) - 1) {
+       word_buffer_[word_size_++] = ch;
++    } else {
++      word_truncated_ = true;
+     }
+ 
+     if (!PDFCharIsNumeric(ch)) {
+@@ -507,7 +512,8 @@
+   if (!GetValidator()->has_read_problems()) {
+     word = ByteStringView(pdfium::span(word_buffer_).first(word_size_));
+   }
+-  return {ByteString(word), word_type == WordType::kNumber};
++  return {ByteString(word), word_type == WordType::kNumber,
++          !word_truncated_ && !GetValidator()->has_read_problems()};
+ }
+ 
+ ByteString CPDF_SyntaxParser::PeekNextWord() {
+@@ -553,12 +559,14 @@
+     AutoRestorer<FX_FILESIZE> pos_restorer(&pos_);
+     WordResult nextword = GetNextWord();
+     if (!nextword.is_number) {
+-      return pdfium::MakeRetain<CPDF_Number>(word.AsStringView());
++      return pdfium::MakeRetain<CPDF_Number>(word.AsStringView(),
++                                             word_result.is_complete);
+     }
+ 
+     WordResult nextword2 = GetNextWord();
+     if (nextword2.word != "R") {
+-      return pdfium::MakeRetain<CPDF_Number>(word.AsStringView());
++      return pdfium::MakeRetain<CPDF_Number>(word.AsStringView(),
++                                             word_result.is_complete);
+     }
+ 
+     pos_restorer.AbandonRestoration();
+--- a/core/fpdfapi/parser/cpdf_syntax_parser.h
++++ b/core/fpdfapi/parser/cpdf_syntax_parser.h
+@@ -36,6 +36,7 @@
+   struct WordResult {
+     ByteString word;
+     bool is_number;
++    bool is_complete;
+   };
+ 
+   static std::unique_ptr<CPDF_SyntaxParser> CreateForTesting(
+@@ -127,6 +128,7 @@
+   DataVector<uint8_t> file_buf_;
+   FX_FILESIZE buf_offset_ = 0;
+   uint32_t word_size_ = 0;
++  bool word_truncated_ = false;
+   uint32_t read_buffer_size_ = CPDF_Stream::kFileBufSize;
+   std::array<uint8_t, 257> word_buffer_ = {};
+ 
+--- a/core/fpdfapi/parser/fpdf_parser_decode.cpp
++++ b/core/fpdfapi/parser/fpdf_parser_decode.cpp
+@@ -35,6 +35,78 @@
+ namespace {
+ 
+ const uint32_t kMaxStreamSize = 20 * 1024 * 1024;
++
++bool IsMetadataWhitespace(uint8_t ch) {
++  return ch == 0 || ch == 9 || ch == 10 || ch == 12 || ch == 13 || ch == 32;
++}
++
++bool HasValidA85End(pdfium::span<const uint8_t> source) {
++  uint32_t digits = 0;
++  uint64_t value = 0;
++  for (size_t i = 0; i < source.size(); ++i) {
++    const uint8_t ch = source[i];
++    if (IsMetadataWhitespace(ch)) {
++      continue;
++    }
++    if (ch == '~') {
++      if (i + 1 >= source.size() || source[i + 1] != '>' || digits == 1) {
++        return false;
++      }
++      if (digits) {
++        for (; digits < 5; ++digits) {
++          value = value * 85 + 84;
++        }
++      }
++      return value <= UINT32_MAX;
++    }
++    if (ch == 'z') {
++      if (digits != 0) {
++        return false;
++      }
++      continue;
++    }
++    if (ch < '!' || ch > 'u') {
++      return false;
++    }
++    value = value * 85 + ch - '!';
++    if (++digits == 5) {
++      if (value > UINT32_MAX) {
++        return false;
++      }
++      digits = 0;
++      value = 0;
++    }
++  }
++  return false;
++}
++
++bool HasValidHexEnd(pdfium::span<const uint8_t> source) {
++  for (uint8_t ch : source) {
++    if (ch == '>') {
++      return true;
++    }
++    if (!IsMetadataWhitespace(ch) && !FXSYS_IsHexDigit(ch)) {
++      return false;
++    }
++  }
++  return false;
++}
++
++bool HasValidRunLengthEnd(pdfium::span<const uint8_t> source) {
++  size_t offset = 0;
++  while (offset < source.size()) {
++    const uint8_t run = source[offset++];
++    if (run == 128) {
++      return true;
++    }
++    const size_t required = run < 128 ? run + 1 : 1;
++    if (required > source.size() - offset) {
++      return false;
++    }
++    offset += required;
++  }
++  return false;
++}
+ 
+ bool CheckFlateDecodeParams(int Colors, int BitsPerComponent, int Columns) {
+   if (Colors < 0 || BitsPerComponent < 0 || Columns < 0) {
+@@ -117,7 +189,11 @@
+   return true;
+ }
+ 
+-DataAndBytesConsumed A85Decode(pdfium::span<const uint8_t> src_span) {
++DataAndBytesConsumed A85Decode(pdfium::span<const uint8_t> src_span,
++                                   bool strict_decode) {
++  if (strict_decode && !HasValidA85End(src_span)) {
++    return {DataVector<uint8_t>(), FX_INVALID_OFFSET};
++  }
+   if (src_span.empty()) {
+     return {DataVector<uint8_t>(), 0u};
+   }
+@@ -130,7 +206,8 @@
+     if (ch == 'z') {
+       zcount++;
+     } else if ((ch < '!' || ch > 'u') && !PDFCharIsLineEnding(ch) &&
+-               ch != ' ' && ch != '\t') {
++               ch != ' ' && ch != '\t' &&
++               !(strict_decode && IsMetadataWhitespace(ch))) {
+       break;
+     }
+     pos++;
+@@ -157,7 +234,8 @@
+   pos = 0;
+   while (pos < src_span.size()) {
+     uint8_t ch = src_span[pos++];
+-    if (PDFCharIsLineEnding(ch) || ch == ' ' || ch == '\t') {
++    if (PDFCharIsLineEnding(ch) || ch == ' ' || ch == '\t' ||
++        (strict_decode && IsMetadataWhitespace(ch))) {
+       continue;
+     }
+ 
+@@ -204,7 +282,11 @@
+   return {std::move(dest_buf), pos};
+ }
+ 
+-DataAndBytesConsumed HexDecode(pdfium::span<const uint8_t> src_span) {
++DataAndBytesConsumed HexDecode(pdfium::span<const uint8_t> src_span,
++                                   bool strict_decode) {
++  if (strict_decode && !HasValidHexEnd(src_span)) {
++    return {DataVector<uint8_t>(), FX_INVALID_OFFSET};
++  }
+   if (src_span.empty()) {
+     return {DataVector<uint8_t>(), 0u};
+   }
+@@ -220,7 +302,8 @@
+   bool is_first = true;
+   for (i = 0; i < src_span.size(); ++i) {
+     uint8_t ch = src_span[i];
+-    if (PDFCharIsLineEnding(ch) || ch == ' ' || ch == '\t') {
++    if (PDFCharIsLineEnding(ch) || ch == ' ' || ch == '\t' ||
++        (strict_decode && IsMetadataWhitespace(ch))) {
+       continue;
+     }
+ 
+@@ -249,7 +332,11 @@
+   return {std::move(dest_buf), i};
+ }
+ 
+-DataAndBytesConsumed RunLengthDecode(pdfium::span<const uint8_t> src_span) {
++DataAndBytesConsumed RunLengthDecode(pdfium::span<const uint8_t> src_span,
++                                   bool strict_decode) {
++  if (strict_decode && !HasValidRunLengthEnd(src_span)) {
++    return {DataVector<uint8_t>(), FX_INVALID_OFFSET};
++  }
+   uint32_t dest_size = 0;
+   size_t i = 0;
+   while (i < src_span.size()) {
+@@ -365,7 +452,8 @@
+ DataAndBytesConsumed FlateOrLZWDecode(bool use_lzw,
+                                       pdfium::span<const uint8_t> src_span,
+                                       const CPDF_Dictionary* pParams,
+-                                      uint32_t estimated_size) {
++                                      uint32_t estimated_size,
++                                      bool strict_decode) {
+   int predictor = 0;
+   int Colors = 0;
+   int BitsPerComponent = 0;
+@@ -383,7 +471,7 @@
+   }
+   return FlateModule::FlateOrLZWDecode(use_lzw, src_span, bEarlyChange,
+                                        predictor, Colors, BitsPerComponent,
+-                                       Columns, estimated_size);
++                                       Columns, estimated_size, strict_decode);
+ }
+ 
+ std::optional<DecoderArray> GetDecoderArray(
+@@ -443,7 +531,8 @@
+     pdfium::span<const uint8_t> src_span,
+     uint32_t last_estimated_size,
+     bool bImageAcc,
+-    const DecoderArray& decoder_array) {
++    const DecoderArray& decoder_array,
++    bool strict_decode) {
+   PDFDataDecodeResult result;
+   // May be changed to point to `result.data` in the for-loop below. So put it
+   // below `result` and let it get destroyed first.
+@@ -466,20 +555,22 @@
+         return result;
+       }
+       DataAndBytesConsumed decode_result = FlateOrLZWDecode(
+-          /*use_lzw=*/false, last_span, pParam, estimated_size);
++          /*use_lzw=*/false, last_span, pParam, estimated_size,
++          strict_decode);
+       new_buf = std::move(decode_result.data);
+       bytes_consumed = decode_result.bytes_consumed;
+     } else if (decoder == "LZWDecode" || decoder == "LZW") {
+       DataAndBytesConsumed decode_result =
+-          FlateOrLZWDecode(/*use_lzw=*/true, last_span, pParam, estimated_size);
++          FlateOrLZWDecode(/*use_lzw=*/true, last_span, pParam, estimated_size,
++                           strict_decode);
+       new_buf = std::move(decode_result.data);
+       bytes_consumed = decode_result.bytes_consumed;
+     } else if (decoder == "ASCII85Decode" || decoder == "A85") {
+-      DataAndBytesConsumed decode_result = A85Decode(last_span);
++      DataAndBytesConsumed decode_result = A85Decode(last_span, strict_decode);
+       new_buf = std::move(decode_result.data);
+       bytes_consumed = decode_result.bytes_consumed;
+     } else if (decoder == "ASCIIHexDecode" || decoder == "AHx") {
+-      DataAndBytesConsumed decode_result = HexDecode(last_span);
++      DataAndBytesConsumed decode_result = HexDecode(last_span, strict_decode);
+       new_buf = std::move(decode_result.data);
+       bytes_consumed = decode_result.bytes_consumed;
+     } else if (decoder == "RunLengthDecode" || decoder == "RL") {
+@@ -488,7 +579,7 @@
+         result.image_params = std::move(pParam);
+         return result;
+       }
+-      DataAndBytesConsumed decode_result = RunLengthDecode(last_span);
++      DataAndBytesConsumed decode_result = RunLengthDecode(last_span, strict_decode);
+       new_buf = std::move(decode_result.data);
+       bytes_consumed = decode_result.bytes_consumed;
+     } else {
+@@ -510,6 +601,11 @@
+     result.data = std::move(new_buf);
+   }
+ 
++  // Crypt filters are handled by the parser. If every filter was Crypt,
++  // preserve its decrypted bytes explicitly instead of relying on raw fallback.
++  if (strict_decode && result.data.empty() && !last_span.empty()) {
++    result.data = DataVector<uint8_t>(last_span.begin(), last_span.end());
++  }
+   result.image_encoding.clear();
+   result.image_params = nullptr;
+   return result;
+--- a/core/fpdfapi/parser/fpdf_parser_decode.h
++++ b/core/fpdfapi/parser/fpdf_parser_decode.h
+@@ -54,17 +54,21 @@
+     const CPDF_Dictionary* pParams);
+ 
+ fxcodec::DataAndBytesConsumed RunLengthDecode(
+-    pdfium::span<const uint8_t> src_span);
++    pdfium::span<const uint8_t> src_span,
++    bool strict_decode = false);
+ 
+-fxcodec::DataAndBytesConsumed A85Decode(pdfium::span<const uint8_t> src_span);
++fxcodec::DataAndBytesConsumed A85Decode(pdfium::span<const uint8_t> src_span,
++                                         bool strict_decode = false);
+ 
+-fxcodec::DataAndBytesConsumed HexDecode(pdfium::span<const uint8_t> src_span);
++fxcodec::DataAndBytesConsumed HexDecode(pdfium::span<const uint8_t> src_span,
++                                         bool strict_decode = false);
+ 
+ fxcodec::DataAndBytesConsumed FlateOrLZWDecode(
+     bool use_lzw,
+     pdfium::span<const uint8_t> src_span,
+     const CPDF_Dictionary* pParams,
+-    uint32_t estimated_size);
++    uint32_t estimated_size,
++    bool strict_decode = false);
+ 
+ // Returns std::nullopt if the filter in |dict| is the wrong type or an
+ // invalid decoder pipeline.
+@@ -94,6 +98,7 @@
+     pdfium::span<const uint8_t> src_span,
+     uint32_t estimated_size,
+     bool bImageAcc,
+-    const DecoderArray& decoder_array);
++    const DecoderArray& decoder_array,
++    bool strict_decode = false);
+ 
+ #endif  // CORE_FPDFAPI_PARSER_FPDF_PARSER_DECODE_H_
+--- a/core/fxcodec/flate/flatemodule.cpp
++++ b/core/fxcodec/flate/flatemodule.cpp
+@@ -90,11 +90,16 @@
+   context->avail_in = static_cast<uint32_t>(src_buf.size());
+ }
+ 
+-bool FlateOutput(z_stream* context, pdfium::span<uint8_t> dest_span) {
++bool FlateOutput(z_stream* context, pdfium::span<uint8_t> dest_span,
++                 int* inflate_status = nullptr) {
+   context->next_out = dest_span.data();
+   context->avail_out = pdfium::checked_cast<uint32_t>(dest_span.size());
+   uint32_t pre_pos = FlateGetPossiblyTruncatedTotalOut(context);
+-  bool ret = inflate(static_cast<z_stream*>(context), Z_SYNC_FLUSH) == Z_OK;
++  const int status = inflate(context, Z_SYNC_FLUSH);
++  if (inflate_status) {
++    *inflate_status = status;
++  }
++  bool ret = status == Z_OK;
+ 
+   uint32_t post_pos = FlateGetPossiblyTruncatedTotalOut(context);
+   CHECK_GE(post_pos, pre_pos);
+@@ -121,7 +126,7 @@
+  public:
+   CLZWDecoder(pdfium::span<const uint8_t> src_span, bool early_change);
+ 
+-  bool Decode();
++  bool Decode(bool strict_decode);
+   uint32_t GetSrcSize() const { return (src_bit_pos_ + 7) / 8; }
+   DataVector<uint8_t> TakeDestBuf() {
+     dest_buf_.resize(dest_byte_pos_);
+@@ -204,7 +209,8 @@
+   return true;
+ }
+ 
+-bool CLZWDecoder::Decode() {
++bool CLZWDecoder::Decode(bool strict_decode) {
++  bool reached_end = false;
+   pdfium::span<uint8_t> decode_span = decode_stack_.span();
+   uint32_t old_code = 0xFFFFFFFF;
+   uint8_t last_char = 0;
+@@ -259,6 +265,7 @@
+       continue;
+     }
+     if (code == 257) {
++      reached_end = true;
+       break;
+     }
+ 
+@@ -269,6 +276,9 @@
+ 
+     DCHECK(old_code < 256 || old_code >= 258);
+     stack_len_ = 0;
++    if (strict_decode && code - 258 > current_code_) {
++      return false;
++    }
+     if (code - 258 >= current_code_) {
+       if (stack_len_ < decode_stack_.size()) {
+         decode_span[stack_len_++] = last_char;
+@@ -303,7 +313,7 @@
+     AddCode(old_code, last_char);
+     old_code = code;
+   }
+-  return dest_byte_pos_ != 0;
++  return strict_decode ? reached_end : dest_byte_pos_ != 0;
+ }
+ 
+ uint8_t GetLeftValue(pdfium::span<const uint8_t> span,
+@@ -494,23 +504,28 @@
+ }
+ 
+ DataAndBytesConsumed FlateUncompress(pdfium::span<const uint8_t> src_buf,
+-                                     uint32_t orig_size) {
++                                     uint32_t orig_size,
++                                     bool strict_decode) {
+   std::unique_ptr<z_stream, FlateDeleter> context(FlateInit());
+   if (!context) {
+-    return {DataVector<uint8_t>(), 0u};
++    return {DataVector<uint8_t>(), strict_decode ? FX_INVALID_OFFSET : 0u};
+   }
+ 
+   FlateInput(context.get(), src_buf);
+ 
+   const uint32_t buf_size =
+       EstimateFlateUncompressBufferSize(orig_size, src_buf.size());
++  if (strict_decode && buf_size == 0) {
++    return {DataVector<uint8_t>(), FX_INVALID_OFFSET};
++  }
++  int terminal_status = Z_OK;
+   uint32_t last_buf_size = buf_size;
+   DataVector<uint8_t> guess_buf(buf_size);
+   std::vector<DataVector<uint8_t>> result_tmp_bufs;
+   {
+     DataVector<uint8_t> cur_buf = std::move(guess_buf);
+     while (true) {
+-      bool ret = FlateOutput(context.get(), cur_buf);
++      bool ret = FlateOutput(context.get(), cur_buf, &terminal_status);
+       uint32_t avail_buf_size = FlateGetAvailOut(context.get());
+       if (!ret || avail_buf_size != 0) {
+         last_buf_size = buf_size - avail_buf_size;
+@@ -520,6 +535,14 @@
+       result_tmp_bufs.push_back(std::move(cur_buf));
+       cur_buf = DataVector<uint8_t>(buf_size);
+     }
++  }
++
++  // Strict metadata decoding must reach the zlib trailer; partial output on
++  // Z_DATA_ERROR/Z_BUF_ERROR (including a missing checksum) is not usable.
++  if (strict_decode &&
++      (terminal_status != Z_STREAM_END ||
++       context->total_out > std::numeric_limits<uint32_t>::max())) {
++    return {DataVector<uint8_t>(), FX_INVALID_OFFSET};
+   }
+ 
+   // The TotalOut size returned from the library may not be big enough to
+@@ -804,21 +827,22 @@
+     int Colors,
+     int BitsPerComponent,
+     int Columns,
+-    uint32_t estimated_size) {
++    uint32_t estimated_size,
++    bool strict_decode) {
+   DataVector<uint8_t> dest_buf;
+   uint32_t bytes_consumed = FX_INVALID_OFFSET;
+   PredictorType predictor_type = GetPredictor(predictor);
+ 
+   if (bLZW) {
+     auto decoder = std::make_unique<CLZWDecoder>(src_span, bEarlyChange);
+-    if (!decoder->Decode()) {
++    if (!decoder->Decode(strict_decode)) {
+       return {std::move(dest_buf), bytes_consumed};
+     }
+ 
+     dest_buf = decoder->TakeDestBuf();
+     bytes_consumed = decoder->GetSrcSize();
+   } else {
+-    DataAndBytesConsumed result = FlateUncompress(src_span, estimated_size);
++    DataAndBytesConsumed result = FlateUncompress(src_span, estimated_size, strict_decode);
+     dest_buf = std::move(result.data);
+     bytes_consumed = result.bytes_consumed;
+   }
+--- a/core/fxcodec/flate/flatemodule.h
++++ b/core/fxcodec/flate/flatemodule.h
+@@ -40,7 +40,8 @@
+       int Colors,
+       int BitsPerComponent,
+       int Columns,
+-      uint32_t estimated_size);
++      uint32_t estimated_size,
++      bool strict_decode = false);
+ 
+   static DataVector<uint8_t> Encode(pdfium::span<const uint8_t> src_span);
+ 
+--- a/fpdfsdk/fpdf_view.cpp
++++ b/fpdfsdk/fpdf_view.cpp
+@@ -4,6 +4,7 @@
+ 
+ // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
+ 
++#include "public/fpdf_verified.h"
+ #include "public/fpdfview.h"
+ 
+ #include <algorithm>
+@@ -190,6 +191,42 @@
+ 
+ }  // namespace
+ 
++static_assert(sizeof(FPDF_VERIFIED_RESULT) == 16);
++
++FPDF_EXPORT FPDF_DOCUMENT FPDF_CALLCONV FPDF_LoadCustomDocumentVerified(
++    FPDF_FILEACCESS* file_access, FPDF_BYTESTRING password,
++    uint32_t max_depth, uint32_t max_visits, uint32_t max_pages,
++    FPDF_VERIFIED_RESULT* result) {
++  if (!result) {
++    return nullptr;
++  }
++  *result = {12, 0, 0, 0};
++  if (!file_access || !file_access->m_GetBlock || !max_depth || !max_visits ||
++      !max_pages || max_pages >= CPDF_Document::kPageMaxNum) {
++    ProcessParseError(CPDF_Parser::FORMAT_ERROR);
++    return nullptr;
++  }
++  auto document = std::make_unique<CPDF_Document>(
++      std::make_unique<CPDF_DocRenderData>(),
++      std::make_unique<CPDF_DocPageData>());
++  document->EnableVerifiedPageTree(max_depth, max_visits, max_pages);
++  CPDF_Parser::Error error = document->LoadDoc(
++      pdfium::MakeRetain<CPDFSDK_CustomAccess>(file_access), password);
++  bool verified = document->FinalizeVerifiedLoad();
++  const auto& status = document->GetVerifiedResult();
++  *result = {status.status, status.page_count, status.visits, status.recoveries};
++  if (error != CPDF_Parser::SUCCESS || !verified) {
++    if (result->status == 0) {
++      result->status = 12;
++    }
++    ProcessParseError(error == CPDF_Parser::SUCCESS ? CPDF_Parser::FORMAT_ERROR
++                                                  : error);
++    return nullptr;
++  }
++  ReportUnsupportedFeatures(document.get());
++  return FPDFDocumentFromCPDFDocument(document.release());
++}
++
+ FPDF_EXPORT void FPDF_CALLCONV FPDF_InitLibrary() {
+   FPDF_InitLibraryWithConfig(nullptr);
+ }
+--- /dev/null
++++ b/public/fpdf_verified.h
+@@ -0,0 +1,29 @@
++// Copyright 2026 The PDFium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef PUBLIC_FPDF_VERIFIED_H_
++#define PUBLIC_FPDF_VERIFIED_H_
++#include <stdint.h>
++#include "fpdfview.h"
++#ifdef __cplusplus
++extern "C" {
++#endif
++// WASM extension ABI. All limits must be positive. Status: 0 success, 1 root,
++// 2 node/type, 3 Count type, 4 Count mismatch, 5 cycle, 6 duplicate,
++// 7 depth, 8 visits, 9 leaves, 10 object decode, 11 mapping, 12 parse.
++// A failed open never returns a document. This validates the page tree and
++// dependent object streams, not page content streams or complete PDF syntax.
++typedef struct {
++  uint32_t status;
++  uint32_t page_count;
++  uint32_t visits;
++  uint32_t recoveries;
++} FPDF_VERIFIED_RESULT;
++FPDF_EXPORT FPDF_DOCUMENT FPDF_CALLCONV FPDF_LoadCustomDocumentVerified(
++    FPDF_FILEACCESS* file_access, FPDF_BYTESTRING password,
++    uint32_t max_depth, uint32_t max_visits, uint32_t max_pages,
++    FPDF_VERIFIED_RESULT* result);
++#ifdef __cplusplus
++}
++#endif
++#endif  // PUBLIC_FPDF_VERIFIED_H_

@@ -9,7 +9,15 @@ import (
 )
 
 func TestVerifiedOpenRequiresExport(t *testing.T) {
-	pool, err := Init(Config{MinIdle: 0, MaxIdle: 0, MaxTotal: 1})
+	// Rename only the verified export in a private binary copy. The packaged
+	// engine provides the export, so the unsupported-engine control must remove
+	// that capability explicitly while preserving a valid ordinary engine.
+	export := []byte("FPDF_LoadCustomDocumentVerified")
+	if bytes.Count(pdfiumWasm, export) != 1 {
+		t.Fatal("expected one verified export name in packaged WASM")
+	}
+	withoutVerified := bytes.Replace(pdfiumWasm, export, []byte("FPDF_LoadCustomDocumentVerifieX"), 1)
+	pool, err := Init(Config{WASM: withoutVerified, MinIdle: 0, MaxIdle: 0, MaxTotal: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

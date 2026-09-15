@@ -1,0 +1,11 @@
+{
+  "matrix_run_pass": 46,
+  "lifecycle_run_pass": 3,
+  "ordinary_run_pass": 2,
+  "fail": 0,
+  "skip": 0,
+  "package_pass": true,
+  "elapsed_seconds": 7.724,
+  "identity_unchanged": true,
+  "wasm_sha256": "4d6cd1caa6a9ae8ea15bc9674ac2b3442d582f291ac2cd1b145ee7c8729ad034"
+}

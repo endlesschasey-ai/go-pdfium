@@ -1,0 +1,8 @@
+{
+  "added_exports": [
+    "FPDF_LoadCustomDocumentVerified"
+  ],
+  "removed_exports": [],
+  "added_imports": [],
+  "removed_imports": []
+}

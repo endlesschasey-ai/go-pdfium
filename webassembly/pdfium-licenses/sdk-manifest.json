@@ -1,0 +1,91 @@
+{
+  "files": [
+    {
+      "file": "sdk/emscripten-LICENSE.txt",
+      "source_path": "upstream/emscripten/LICENSE",
+      "sha256": "620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86",
+      "bytes": 5093,
+      "scope": "Emscripten runtime MIT/NCSA plus embedded Node-derived notice"
+    },
+    {
+      "file": "sdk/emscripten-AUTHORS.txt",
+      "source_path": "upstream/emscripten/AUTHORS",
+      "sha256": "8585fa1b981f576f52806833481323007ccac5c00f31a873215e31c0f42820f0",
+      "bytes": 29004,
+      "scope": "Referenced Emscripten author list"
+    },
+    {
+      "file": "sdk/musl-COPYRIGHT.txt",
+      "source_path": "upstream/emscripten/system/lib/libc/musl/COPYRIGHT",
+      "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
+      "bytes": 6204,
+      "scope": "libc, libsockets, standalone time/exit code; includes third-party terms pointers"
+    },
+    {
+      "file": "sdk/compiler-rt-LICENSE.txt",
+      "source_path": "upstream/emscripten/system/lib/compiler-rt/LICENSE.TXT",
+      "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d",
+      "bytes": 16708,
+      "scope": "libcompiler_rt.a"
+    },
+    {
+      "file": "sdk/libcxx-LICENSE.txt",
+      "source_path": "upstream/emscripten/system/lib/libcxx/LICENSE.TXT",
+      "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b",
+      "bytes": 16703,
+      "scope": "libc++-noexcept.a; full Apache/LLVM and legacy license text"
+    },
+    {
+      "file": "sdk/libcxx-CREDITS.txt",
+      "source_path": "upstream/emscripten/system/lib/libcxx/CREDITS.TXT",
+      "sha256": "054e099bf5954c8821b880f5751d2fbf221bf43cf7c57ac1c2c5ff6263d6d9c3",
+      "bytes": 4124,
+      "scope": "Referenced libc++ contributor list"
+    },
+    {
+      "file": "sdk/libcxxabi-LICENSE.txt",
+      "source_path": "upstream/emscripten/system/lib/libcxxabi/LICENSE.TXT",
+      "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c",
+      "bytes": 16706,
+      "scope": "libc++abi-noexcept.a"
+    },
+    {
+      "file": "sdk/libcxxabi-CREDITS.txt",
+      "source_path": "upstream/emscripten/system/lib/libcxxabi/CREDITS.TXT",
+      "sha256": "a259fff28a51623f14917dd68f97f3af7804984087ddc1bfd8196d08ebb75b83",
+      "bytes": 1660,
+      "scope": "Referenced libc++abi contributor list"
+    },
+    {
+      "file": "sdk/llvm-libc-LICENSE.txt",
+      "source_path": "upstream/emscripten/system/lib/llvm-libc/LICENSE.TXT",
+      "sha256": "ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47",
+      "bytes": 15140,
+      "scope": "Conservative header/source provenance: libc++ build includes llvm-libc; no separate archive observed"
+    },
+    {
+      "file": "sdk/emsdk-LICENSE.txt",
+      "source_path": "LICENSE",
+      "sha256": "99d9a9616fbde3f5ee22a71d8645799a8522d48526130c5ba6dc27ad15ce01f1",
+      "bytes": 1326,
+      "scope": "SDK tooling provenance only; not evidence of linked SDK-manager code"
+    },
+    {
+      "file": "sdk/runtime-source-notices.txt",
+      "sha256": "5b4e1c93a670c1bcdb0e14f17ec1c10d92581852c371bf000bfa1a0c10e6b674",
+      "bytes": 761500,
+      "scope": "Deduplicated exact C/C++/assembly C-style and // notice comments in SDK runtime source/header superset; origins in runtime-source-notices-index.json"
+    },
+    {
+      "file": "sdk/CC0-1.0.txt",
+      "source_url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode.txt",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "bytes": 7048,
+      "scope": "Full CC0 terms referenced by dlmalloc"
+    }
+  ],
+  "selected_assets": 13,
+  "source_files_scanned": 3707,
+  "unique_notice_blocks": 792,
+  "existing_pdfium_license_files": 15
+}

@@ -1,0 +1,82 @@
+{
+  "base": "91b9d569b34be4f38eed7b3c49b227356c3aadad",
+  "patch_sha256": "51dbba78c65a996338fc31957396bc785022e071a3c206cb60eb0e63a3928cc5",
+  "files": [
+    {
+      "path": "BUILD.gn",
+      "sha256": "8ad8576d6d3918999252aa1f1b6b5d795012ff51a371c95fdfba804f583f47b3"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_document.cpp",
+      "sha256": "b2c4e22926b5ef0875d000c8d5196440fc33ab2df47aadc4836bab8b2986c3a9"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_document.h",
+      "sha256": "dd3590124c18b9fbfe273563723d14e6a4f447e9d4d97eabf4a393ddf2509ee0"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_number.cpp",
+      "sha256": "8d0573c409cf372cd3efad2d583d9366deaab694ab12fbb71062bb170a6b0a46"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_number.h",
+      "sha256": "5b2de72964b81701019af0fa67a9cb9de321e9a93540a5977c20cb82565e8e46"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_object_stream.cpp",
+      "sha256": "6989d3b19caf156e987afb12c91af10a82b513f0f5b5f11e56810aef69d407d1"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_object_stream.h",
+      "sha256": "0ad4d5a49f6bdd32d8cd403d56b4711018db476b3651d468865701ff9e737841"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_parser.cpp",
+      "sha256": "49700ab8e4f593d93139a2ddfe826f51ce9b44f20d33e42ef5c264d1af01a5a4"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_parser.h",
+      "sha256": "ee39bd0eb221728ce7e86085f8a9368be4e0cd2d66e92bba9934d8a67baaf945"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_stream_acc.cpp",
+      "sha256": "d320a1410cdc186ecdfacc3a3582707f6be255184b8394b752e27ecb66a644d9"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_stream_acc.h",
+      "sha256": "3f1f80c5693d210b00d191ce8ee6cb2a642e11c53ec5eb5338adaac3cc3d33e7"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_syntax_parser.cpp",
+      "sha256": "f4a24b947fb753a21b7d2aa41e2622b41e8db3cc72a35103ea1ac6e2184f8efa"
+    },
+    {
+      "path": "core/fpdfapi/parser/cpdf_syntax_parser.h",
+      "sha256": "3e2c9ff41154bbe2538a4e41bb4b5b26c15280eb2e0929ddef38c2789247d2cf"
+    },
+    {
+      "path": "core/fpdfapi/parser/fpdf_parser_decode.cpp",
+      "sha256": "dbba39899e252e2a6651d9321f2b443c0ebc23a90be56a9808ba454ef60e6462"
+    },
+    {
+      "path": "core/fpdfapi/parser/fpdf_parser_decode.h",
+      "sha256": "b2b85c54f8ea58a70ee4a4e8c39b3461cab71794116c62cec85f50ee21ad5d88"
+    },
+    {
+      "path": "core/fxcodec/flate/flatemodule.cpp",
+      "sha256": "a5f83105e93467cbf287f7466b786452b7d2f67baf0e7c024de7774c628b9c48"
+    },
+    {
+      "path": "core/fxcodec/flate/flatemodule.h",
+      "sha256": "8cb5d337bb3058b85e1a49bda97699e9207ad26d9d2cd837030c6b70451396f2"
+    },
+    {
+      "path": "fpdfsdk/fpdf_view.cpp",
+      "sha256": "d60a92e00ef32a0e2c87b0a2fc68bc0d86d757d192bf7593e206b67f35d11296"
+    },
+    {
+      "path": "public/fpdf_verified.h",
+      "sha256": "b8f92cac3838eb6bc2f42a8251f947bce86e9f32a5f8e1e8c78fe8589d7a250a"
+    }
+  ]
+}

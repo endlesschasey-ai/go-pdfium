@@ -1,0 +1,215 @@
+[
+  {
+    "path": "pdfium",
+    "declared": "https://pdfium.googlesource.com/pdfium.git",
+    "actual_commit": "91b9d569b34be4f38eed7b3c49b227356c3aadad"
+  },
+  {
+    "path": "pdfium/base/allocator/partition_allocator",
+    "declared": "https://chromium.googlesource.com/chromium/src/base/allocator/partition_allocator.git@390c4b91f769aad03ea13d2a479d7430406302f2",
+    "actual_commit": "390c4b91f769aad03ea13d2a479d7430406302f2"
+  },
+  {
+    "path": "pdfium/build",
+    "declared": "https://chromium.googlesource.com/chromium/src/build.git@613f5c13bccbc15bd7ce8da9acb13ac06459f8cb",
+    "actual_commit": "613f5c13bccbc15bd7ce8da9acb13ac06459f8cb"
+  },
+  {
+    "path": "pdfium/buildtools",
+    "declared": "https://chromium.googlesource.com/chromium/src/buildtools.git@e06be5db47ae15871b2c40c44d75a9fb91daf194",
+    "actual_commit": "e06be5db47ae15871b2c40c44d75a9fb91daf194"
+  },
+  {
+    "path": "pdfium/buildtools/linux64:gn/gn/linux-${arch}",
+    "declared": "https://chrome-infra-packages.appspot.com/gn/gn/linux-${arch}@git_revision:3357c4f51b1a9e676378c695dd9c7e9911c35ee6"
+  },
+  {
+    "path": "pdfium/buildtools/reclient:infra/rbe/client/${platform}",
+    "declared": "https://chrome-infra-packages.appspot.com/infra/rbe/client/${platform}@re_client_version:0.185.0.db415f21-gomaip"
+  },
+  {
+    "path": "pdfium/third_party/abseil-cpp",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/abseil-cpp.git@5e42a36a85a252d8cdee6c39661d2bfd9883fd5c",
+    "actual_commit": "5e42a36a85a252d8cdee6c39661d2bfd9883fd5c"
+  },
+  {
+    "path": "pdfium/third_party/brotli",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/brotli.git@803ac71664ad62af1de39ff55e63ebbe07006fc8",
+    "actual_commit": "803ac71664ad62af1de39ff55e63ebbe07006fc8"
+  },
+  {
+    "path": "pdfium/third_party/clang-format/script",
+    "declared": "https://chromium.googlesource.com/external/github.com/llvm/llvm-project/clang/tools/clang-format.git@6eddfb5ec5f92127a531eda66c568d3a11e7ec11",
+    "actual_commit": "6eddfb5ec5f92127a531eda66c568d3a11e7ec11"
+  },
+  {
+    "path": "pdfium/third_party/depot_tools",
+    "declared": "https://chromium.googlesource.com/chromium/tools/depot_tools.git@ed3a6fdd519a74da32fb73e1d2ce9c405812cf1a",
+    "actual_commit": "ed3a6fdd519a74da32fb73e1d2ce9c405812cf1a"
+  },
+  {
+    "path": "pdfium/third_party/dragonbox/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/jk-jeon/dragonbox.git@beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44",
+    "actual_commit": "beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
+  },
+  {
+    "path": "pdfium/third_party/fast_float/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/fastfloat/fast_float.git@05087a303dad9c98768b33c829d398223a649bc6",
+    "actual_commit": "05087a303dad9c98768b33c829d398223a649bc6"
+  },
+  {
+    "path": "pdfium/third_party/fp16/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/Maratyszcza/FP16.git@3d2de1816307bac63c16a297e8c4dc501b4076df",
+    "actual_commit": "3d2de1816307bac63c16a297e8c4dc501b4076df"
+  },
+  {
+    "path": "pdfium/third_party/freetype/src",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/freetype2.git@b08a2eb0dd37f4a6c886fa5b0ecf5b3e1d27aac7",
+    "actual_commit": "b08a2eb0dd37f4a6c886fa5b0ecf5b3e1d27aac7"
+  },
+  {
+    "path": "pdfium/third_party/googletest/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/google/googletest.git@4fe3307fb2d9f86d19777c7eb0e4809e9694dde7",
+    "actual_commit": "4fe3307fb2d9f86d19777c7eb0e4809e9694dde7"
+  },
+  {
+    "path": "pdfium/third_party/harfbuzz/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/harfbuzz/harfbuzz.git@d639197ed529b05c27f38ebaab365a621d5edad5",
+    "actual_commit": "d639197ed529b05c27f38ebaab365a621d5edad5"
+  },
+  {
+    "path": "pdfium/third_party/highway/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/google/highway.git@2607d3b5b0113992fe84d3848859eae13b3b52c1",
+    "actual_commit": "2607d3b5b0113992fe84d3848859eae13b3b52c1"
+  },
+  {
+    "path": "pdfium/third_party/icu",
+    "declared": "https://chromium.googlesource.com/chromium/deps/icu.git@3859e64eed5d34544b27fbcab0ac1685ce83df3c",
+    "actual_commit": "3859e64eed5d34544b27fbcab0ac1685ce83df3c"
+  },
+  {
+    "path": "pdfium/third_party/instrumented_libs",
+    "declared": "https://chromium.googlesource.com/chromium/third_party/instrumented_libraries.git@e8cb570a9a2ee9128e2214c73417ad2a3c47780b",
+    "actual_commit": "e8cb570a9a2ee9128e2214c73417ad2a3c47780b"
+  },
+  {
+    "path": "pdfium/third_party/jinja2",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/jinja2.git@c3027d884967773057bf74b957e3fea87e5df4d7",
+    "actual_commit": "c3027d884967773057bf74b957e3fea87e5df4d7"
+  },
+  {
+    "path": "pdfium/third_party/libc++/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/llvm/llvm-project/libcxx.git@5abc7f839700f0f17338434e1c1c6a8c87c00c11",
+    "actual_commit": "5abc7f839700f0f17338434e1c1c6a8c87c00c11"
+  },
+  {
+    "path": "pdfium/third_party/libc++abi/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/llvm/llvm-project/libcxxabi.git@8f11bb1d4438d0239d0dfc1bd9456a9f31629dda",
+    "actual_commit": "8f11bb1d4438d0239d0dfc1bd9456a9f31629dda"
+  },
+  {
+    "path": "pdfium/third_party/libjpeg_turbo",
+    "declared": "https://chromium.googlesource.com/chromium/deps/libjpeg_turbo.git@640f254ad0fa03f6b1f29f89b7dd9366f2f6e533",
+    "actual_commit": "640f254ad0fa03f6b1f29f89b7dd9366f2f6e533"
+  },
+  {
+    "path": "pdfium/third_party/libpng",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/libpng.git@8a5b4ace0c2a8a47d73037610b98096f55f3d18f",
+    "actual_commit": "8a5b4ace0c2a8a47d73037610b98096f55f3d18f"
+  },
+  {
+    "path": "pdfium/third_party/llvm-build/Release+Asserts:Linux_x64/clang-llvmorg-23-init-10931-g20b6ec66-11.tar.xz",
+    "declared": "gs://chromium-browser-clang/Linux_x64/clang-llvmorg-23-init-10931-g20b6ec66-11.tar.xz"
+  },
+  {
+    "path": "pdfium/third_party/llvm-build/Release+Asserts:Linux_x64/llvmobjdump-llvmorg-23-init-10931-g20b6ec66-11.tar.xz",
+    "declared": "gs://chromium-browser-clang/Linux_x64/llvmobjdump-llvmorg-23-init-10931-g20b6ec66-11.tar.xz"
+  },
+  {
+    "path": "pdfium/third_party/llvm-libc/src",
+    "declared": "https://chromium.googlesource.com/external/github.com/llvm/llvm-project/libc.git@9309c117ebae84dd2f9df1ef99de4782162527d5",
+    "actual_commit": "9309c117ebae84dd2f9df1ef99de4782162527d5"
+  },
+  {
+    "path": "pdfium/third_party/markupsafe",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/markupsafe.git@4256084ae14175d38a3ff7d739dca83ae49ccec6",
+    "actual_commit": "4256084ae14175d38a3ff7d739dca83ae49ccec6"
+  },
+  {
+    "path": "pdfium/third_party/nasm",
+    "declared": "https://chromium.googlesource.com/chromium/deps/nasm.git@525a09a813be0f75b646ee93fc2a31c27b87d722",
+    "actual_commit": "525a09a813be0f75b646ee93fc2a31c27b87d722"
+  },
+  {
+    "path": "pdfium/third_party/ninja:infra/3pp/tools/ninja/${platform}",
+    "declared": "https://chrome-infra-packages.appspot.com/infra/3pp/tools/ninja/${platform}@version:3@1.12.1.chromium.4"
+  },
+  {
+    "path": "pdfium/third_party/rust-toolchain:Linux_x64/rust-toolchain-4c4205163abcbd08948b3efab796c543ba1ea687-5-llvmorg-23-init-10931-g20b6ec66.tar.xz",
+    "declared": "gs://chromium-browser-clang/Linux_x64/rust-toolchain-4c4205163abcbd08948b3efab796c543ba1ea687-5-llvmorg-23-init-10931-g20b6ec66.tar.xz"
+  },
+  {
+    "path": "pdfium/third_party/simdutf",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/simdutf@f7356eed293f8208c40b3c1b344a50bd70971983",
+    "actual_commit": "f7356eed293f8208c40b3c1b344a50bd70971983"
+  },
+  {
+    "path": "pdfium/third_party/siso/cipd:build/siso/${platform}",
+    "declared": "https://chrome-infra-packages.appspot.com/build/siso/${platform}@git_revision:b18cb0f263cfcc2f17a925cb211972a32dc211f6"
+  },
+  {
+    "path": "pdfium/third_party/skia",
+    "declared": "https://skia.googlesource.com/skia.git@e4281d5a79a7874f9f073451cdc50163a30bb292",
+    "actual_commit": "e4281d5a79a7874f9f073451cdc50163a30bb292"
+  },
+  {
+    "path": "pdfium/third_party/test_fonts",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/test_fonts.git@7f51783942943e965cd56facf786544ccfc07713",
+    "actual_commit": "7f51783942943e965cd56facf786544ccfc07713"
+  },
+  {
+    "path": "pdfium/third_party/zlib",
+    "declared": "https://chromium.googlesource.com/chromium/src/third_party/zlib.git@5c1dfd53066bf58d3d28197f715717dd88762443",
+    "actual_commit": "5c1dfd53066bf58d3d28197f715717dd88762443"
+  },
+  {
+    "path": "pdfium/tools/clang",
+    "declared": "https://chromium.googlesource.com/chromium/src/tools/clang@06dd1f40dcb33340f5fd45b770261f111fb33728",
+    "actual_commit": "06dd1f40dcb33340f5fd45b770261f111fb33728"
+  },
+  {
+    "path": "pdfium/tools/code_coverage",
+    "declared": "https://chromium.googlesource.com/chromium/src/tools/code_coverage.git@74d04576e893e08d9d16c99866c7d6696713d554",
+    "actual_commit": "74d04576e893e08d9d16c99866c7d6696713d554"
+  },
+  {
+    "path": "pdfium/tools/memory",
+    "declared": "https://chromium.googlesource.com/chromium/src/tools/memory@66b0df34a721e0f7fe09d1606a92b5e4d909c4a9",
+    "actual_commit": "66b0df34a721e0f7fe09d1606a92b5e4d909c4a9"
+  },
+  {
+    "path": "pdfium/tools/resultdb:infra/tools/result_adapter/${platform}",
+    "declared": "https://chrome-infra-packages.appspot.com/infra/tools/result_adapter/${platform}@git_revision:5fb3ca203842fd691cab615453f8e5a14302a1d8"
+  },
+  {
+    "path": "pdfium/tools/skia_goldctl/linux:skia/tools/goldctl/linux-amd64",
+    "declared": "https://chrome-infra-packages.appspot.com/skia/tools/goldctl/linux-amd64@git_revision:ac4d1516c500f636488b69e0b11a9e126abe28b9"
+  },
+  {
+    "path": "pdfium/v8",
+    "declared": "https://chromium.googlesource.com/v8/v8.git@0c6c73eea6994260f0a1d88469708360ea60c660",
+    "actual_commit": "0c6c73eea6994260f0a1d88469708360ea60c660"
+  },
+  {
+    "path": "pdfium/build/linux/debian_bullseye_amd64-sysroot:52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d",
+    "declared": "gs://chrome-linux-sysroot/52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
+  },
+  {
+    "path": "pdfium/build/linux/debian_bullseye_i386-sysroot:3de724b0d63478e1ae35f07b95d02261581a66e05c19aebe4e443d76179a565e",
+    "declared": "gs://chrome-linux-sysroot/3de724b0d63478e1ae35f07b95d02261581a66e05c19aebe4e443d76179a565e"
+  },
+  {
+    "path": "pdfium/buildtools/linux64-format:79a7b4e5336339c17b828de10d80611ff0f85961",
+    "declared": "gs://chromium-clang-format/79a7b4e5336339c17b828de10d80611ff0f85961"
+  }
+]
