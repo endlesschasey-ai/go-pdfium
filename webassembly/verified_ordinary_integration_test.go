@@ -11,17 +11,15 @@ import (
 )
 
 func TestOrdinaryEncryptedRecoveryControls(t *testing.T) {
-	var wasm []byte
-	if path := os.Getenv("PDFIUM_VERIFIED_WASM"); path != "" {
-		var err error
-		wasm, err = os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("ordinary API selected artifact=%s sha256=%x", path, sha256.Sum256(wasm))
-	} else {
-		t.Log("ordinary API uses embedded old artifact; not a new-artifact acceptance run")
+	path := os.Getenv("PDFIUM_VERIFIED_WASM")
+	if path == "" {
+		path = "pdfium.wasm"
 	}
+	wasm, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("ordinary API artifact=%s sha256=%x", path, sha256.Sum256(wasm))
 	pool, err := webassembly.Init(webassembly.Config{WASM: wasm, MaxTotal: 1, MaxIdle: 0})
 	if err != nil {
 		t.Fatal(err)

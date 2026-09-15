@@ -120,7 +120,7 @@ func (p *PdfiumImplementation) OpenDocumentVerified(request VerifiedOpenRequest)
 		}
 		return nil, &VerifiedOpenError{Status: status, Cause: cause}
 	}
-	if count == 0 || count > request.MaxPages || visits > request.MaxVisits {
+	if count > request.MaxPages || visits > request.MaxVisits {
 		return nil, &VerifiedOpenError{Cause: fmt.Errorf("inconsistent verified result")}
 	}
 	doc := p.registerDocument(&handle)
