@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"math"
 	"sync"
 	"unsafe"
 
@@ -18,6 +19,10 @@ import (
 )
 
 type FileReaderRef struct {
+	Size         uint64
+	Module       api.Module
+	Budget       *FileReadBudget
+	ReadMu       sync.Mutex
 	Reader       io.ReadSeeker
 	FileAccess   *uint64
 	ParamPointer *uint64
@@ -34,35 +39,53 @@ var FileReaders = struct {
 }
 
 func (p *PdfiumImplementation) CreateFileAccessReader(fileSize int64, reader io.ReadSeeker) (*uint64, *uint32, error) {
+	if reader == nil || fileSize <= 0 || uint64(fileSize) > math.MaxUint32 {
+		return nil, nil, errors.New("file reader requires a positive WASM32 source size")
+	}
 	FileReaders.Mutex.Lock()
 	defer FileReaders.Mutex.Unlock()
+	// Do not overwrite an active registration when the uint32 counter wraps.
 	fileReaderIndex := FileReaders.Counter
-	FileReaders.Counter++
-
+	for FileReaders.Refs[fileReaderIndex] != nil {
+		fileReaderIndex++
+		if fileReaderIndex == FileReaders.Counter {
+			return nil, nil, errors.New("file reader registry full")
+		}
+	}
+	FileReaders.Counter = fileReaderIndex + 1
 	paramPointer, err := p.Malloc(4)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	p.Module.Memory().WriteUint32Le(uint32(paramPointer), fileReaderIndex)
-
-	res, err := p.Module.ExportedFunction("FPDF_FILEACCESS_Create").Call(p.Context, uint64(fileSize), paramPointer)
+	if paramPointer == 0 {
+		return nil, nil, errors.New("file reader parameter allocation failed")
+	}
+	owned := false
+	defer func() {
+		if !owned {
+			_ = p.Free(paramPointer)
+		}
+	}()
+	if !p.Module.Memory().WriteUint32Le(uint32(paramPointer), fileReaderIndex) {
+		return nil, nil, errors.New("file reader parameter outside guest memory")
+	}
+	create := p.Module.ExportedFunction("FPDF_FILEACCESS_Create")
+	if create == nil {
+		return nil, nil, errors.New("FPDF_FILEACCESS_Create export missing")
+	}
+	result, err := create.Call(p.Context, uint64(fileSize), paramPointer)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	fileAccessPointer := res[0]
-
-	fileReaderRef := &FileReaderRef{
-		Reader:       reader,
-		FileAccess:   &fileAccessPointer,
-		ParamPointer: &paramPointer,
+	if len(result) != 1 || result[0] == 0 {
+		return nil, nil, errors.New("file access allocation failed")
 	}
-
-	FileReaders.Refs[fileReaderIndex] = fileReaderRef
-	p.fileReaders[fileReaderIndex] = fileReaderRef
-
-	return &fileAccessPointer, &fileReaderIndex, nil
+	access := result[0]
+	ref := &FileReaderRef{Reader: reader, Size: uint64(fileSize), Module: p.Module, FileAccess: &access, ParamPointer: &paramPointer}
+	FileReaders.Refs[fileReaderIndex] = ref
+	p.fileReaders[fileReaderIndex] = ref
+	owned = true
+	return &access, &fileReaderIndex, nil
 }
 
 type FileWriterRef struct {

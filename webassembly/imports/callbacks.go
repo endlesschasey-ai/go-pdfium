@@ -17,59 +17,80 @@ type FPDF_FILEACCESS_CB struct {
 }
 
 func (cb FPDF_FILEACCESS_CB) Call(ctx context.Context, mod api.Module, stack []uint64) {
-	paramPointer := uint32(stack[0])
-	position := uint32(stack[1])
-	pBufPointer := uint32(stack[2])
-	size := uint32(stack[3])
-
-	mem := mod.Memory()
-
-	param, ok := mem.ReadUint32Le(paramPointer)
+	paramPointer, position, destination, size := uint32(stack[0]), uint32(stack[1]), uint32(stack[2]), uint32(stack[3])
+	stack[0] = 0
+	memory := mod.Memory()
+	id, ok := memory.ReadUint32Le(paramPointer)
 	if !ok {
-		stack[0] = uint64(0)
 		return
 	}
-
-	// Check if we have the file referenced in param.
 	implementation_webassembly.FileReaders.Mutex.Lock()
-	openFile, ok := implementation_webassembly.FileReaders.Refs[param]
+	ref := implementation_webassembly.FileReaders.Refs[id]
 	implementation_webassembly.FileReaders.Mutex.Unlock()
+	if ref == nil || ref.Module != mod {
+		return
+	}
+	ref.ReadMu.Lock()
+	defer ref.ReadMu.Unlock()
+	fail := func(err error) { ref.Budget.Fail(err) }
+	if err := ref.Budget.Charge(uint64(size)); err != nil {
+		return
+	}
+	if err := ctx.Err(); err != nil {
+		fail(err)
+		return
+	}
+	if uint64(position) > ref.Size || uint64(size) > ref.Size-uint64(position) {
+		fail(errors.New("PDF source callback range outside source"))
+		return
+	}
+	buffer, ok := memory.Read(destination, size)
 	if !ok {
-		stack[0] = uint64(0)
+		fail(errors.New("PDF source callback destination outside guest memory"))
 		return
 	}
-
-	// Seek to the right position.
-	_, err := openFile.Reader.Seek(int64(position), 0)
-	if err != nil {
-		stack[0] = uint64(0)
+	if ref.Reader == nil {
+		fail(errors.New("PDF source reader is nil"))
 		return
 	}
-
-	// Read the requested data into a buffer.
-	readBuffer := make([]byte, size)
-	n, err := openFile.Reader.Read(readBuffer)
-
-	// Clear out the error if we have EOF but read the requested size.
-	// This is to handle some edge case clients that return EOF as err when
-	// reading the exact amount of bytes requested until the end of the file.
-	if err != nil && errors.Is(err, io.EOF) && n == int(size) {
-		err = nil
-	}
-
-	if n == 0 || err != nil {
-		stack[0] = uint64(0)
+	if _, err := ref.Reader.Seek(int64(position), io.SeekStart); err != nil {
+		fail(err)
 		return
 	}
-
-	ok = mem.Write(pBufPointer, readBuffer)
-	if !ok {
-		stack[0] = uint64(0)
-		return
+	// No guest-controlled host allocation. Read directly into the already-checked
+	// guest range; each underlying read is bounded even after partial reads.
+	for off := 0; off < len(buffer); {
+		if err := ctx.Err(); err != nil {
+			fail(err)
+			return
+		}
+		end := min(off+65536, len(buffer))
+		n, err := ref.Reader.Read(buffer[off:end])
+		if n < 0 || n > end-off {
+			fail(errors.New("PDF source reader returned invalid count"))
+			return
+		}
+		off += n
+		if ctx.Err() != nil {
+			fail(ctx.Err())
+			return
+		}
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				fail(err)
+				return
+			}
+			if off != len(buffer) {
+				fail(io.ErrUnexpectedEOF)
+				return
+			}
+		}
+		if n == 0 {
+			fail(io.ErrNoProgress)
+			return
+		}
 	}
-
-	stack[0] = uint64(n)
-	return
+	stack[0] = 1
 }
 
 type FPDF_FILEWRITE_CB struct {
