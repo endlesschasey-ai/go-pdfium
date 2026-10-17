@@ -18,10 +18,14 @@ var ErrVerifiedReadBudget = impl.ErrReadBudget
 // OpenDocumentVerified is WASM-only. It never falls back to ordinary OpenDocument.
 // Close the returned Document or its instance; retain it for subsequent trusted
 // operations instead of reopening the source through an ordinary loader.
-func OpenDocumentVerified(instance pdfium.Pdfium, request VerifiedOpenRequest) (*VerifiedOpenResponse, error) {
+func OpenDocumentVerified(instance pdfium.Pdfium, request VerifiedOpenRequest) (resp *VerifiedOpenResponse, err error) {
 	i, ok := instance.(*pdfiumInstance)
 	if !ok || i == nil || i.closed {
 		return nil, ErrVerifiedOpenUnsupported
 	}
+	i.beginCall("OpenDocumentVerified")
+	defer func() {
+		err = i.finishCall(err)
+	}()
 	return i.worker.Instance.OpenDocumentVerified(request)
 }

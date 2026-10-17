@@ -36,6 +36,9 @@ type worker struct {
 	Functions map[string]api.Function
 	Module    api.Module
 	Instance  *implementation_webassembly.PdfiumImplementation
+	// memory is set only when Config.MemoryLimitBytes is non-zero.
+	// It is owned by this worker and is not shared with other instances.
+	memory *memoryLimiter
 }
 
 type Config struct {
@@ -49,6 +52,12 @@ type Config struct {
 	Stderr        io.Writer
 	RandomSource  io.Reader
 	ReuseWorkers  bool // WebAssembly runtime by default doesn't use workers because creating new instances is cheap.
+
+	// MemoryLimitBytes, when non-zero, caps each instance's wasm linear-memory
+	// backing buffer. Growth past this many bytes is refused by the instance
+	// allocator and surfaced as *MemoryLimitError. Zero leaves RuntimeConfig
+	// unchanged, including WithMemoryLimitPages.
+	MemoryLimitBytes uint64
 }
 
 type pdfiumPool struct {
@@ -111,6 +120,13 @@ func Init(config Config) (pdfium.Pool, error) {
 	if config.RuntimeConfig == nil {
 		config.RuntimeConfig = wazero.NewRuntimeConfig()
 	}
+	if config.MemoryLimitBytes > 0 {
+		// Keep growth requests inside the module's encoded maximum so they
+		// reach the allocator. Do not reserve that maximum up front.
+		config.RuntimeConfig = config.RuntimeConfig.
+			WithMemoryLimitPages(runtimeMemoryPagesForAllocator).
+			WithMemoryCapacityFromMax(false)
+	}
 
 	poolContext := experimental.WithFunctionListenerFactory(context.Background(), logging.NewLoggingListenerFactory(os.Stdout))
 
@@ -131,6 +147,17 @@ func Init(config Config) (pdfium.Pool, error) {
 		runtime.Close(poolContext)
 		return nil, fmt.Errorf("could not compile webassembly module: %w", err)
 	}
+	if config.MemoryLimitBytes > 0 {
+		if requested, ok := declaredMinimumBytes(compiledModule); ok && requested > config.MemoryLimitBytes {
+			runtime.Close(poolContext)
+			return nil, &MemoryLimitError{
+				Requested: requested,
+				Current:   0,
+				Limit:     config.MemoryLimitBytes,
+				Phase:     "instantiate",
+			}
+		}
+	}
 
 	// Add basic Emscripten specific methods.
 	if _, err := imports.Instantiate(poolContext, runtime, compiledModule); err != nil {
@@ -145,6 +172,17 @@ func Init(config Config) (pdfium.Pool, error) {
 				Context: workerCtx,
 				Cancel:  cancel,
 			}
+			// InstantiateModule reads the allocator from its context. poolContext is
+			// context.Background() and does not carry one.
+			instantiateCtx := newWorker.Context
+			if config.MemoryLimitBytes > 0 {
+				newWorker.memory = newMemoryLimiter(config.MemoryLimitBytes)
+				newWorker.memory.begin("instantiate")
+				instantiateCtx = experimental.WithMemoryAllocator(newWorker.Context, newWorker.memory)
+			}
+			fail := func(err error) (interface{}, error) {
+				return nil, newWorker.finishCall(err)
+			}
 
 			moduleConfig := wazero.NewModuleConfig().
 				WithStartFunctions("_initialize").
@@ -154,21 +192,21 @@ func Init(config Config) (pdfium.Pool, error) {
 				WithFSConfig(config.FSConfig).
 				WithName("")
 
-			mod, err := runtime.InstantiateModule(newWorker.Context, compiledModule, moduleConfig)
+			mod, err := runtime.InstantiateModule(instantiateCtx, compiledModule, moduleConfig)
 			if err != nil {
-				return nil, fmt.Errorf("could not instantiate webassembly module: %w", err)
+				return fail(fmt.Errorf("could not instantiate webassembly module: %w", err))
 			}
 
 			newWorker.Module = mod
 
 			malloc := mod.ExportedFunction("malloc")
 			if malloc == nil {
-				return nil, fmt.Errorf("could not find malloc in exported methods")
+				return fail(fmt.Errorf("could not find malloc in exported methods"))
 			}
 
 			free := mod.ExportedFunction("free")
 			if malloc == nil {
-				return nil, fmt.Errorf("could not find free in exported methods")
+				return fail(fmt.Errorf("could not find free in exported methods"))
 			}
 
 			newWorker.Functions = map[string]api.Function{
@@ -178,7 +216,10 @@ func Init(config Config) (pdfium.Pool, error) {
 
 			_, err = mod.ExportedFunction("FPDF_InitLibrary").Call(newWorker.Context)
 			if err != nil {
-				return nil, fmt.Errorf("could not call FPDF_InitLibrary: %w", err)
+				return fail(fmt.Errorf("could not call FPDF_InitLibrary: %w", err))
+			}
+			if err = newWorker.finishCall(nil); err != nil {
+				return nil, err
 			}
 
 			newWorker.Instance = implementation_webassembly.GetInstance(newWorker.Context, newWorker.Functions, newWorker.Module)
@@ -415,4 +456,28 @@ func (i *pdfiumInstance) Kill() (err error) {
 
 func (i *pdfiumInstance) GetImplementation() interface{} {
 	return i.worker.Instance
+}
+
+func (w *worker) finishCall(err error) error {
+	if w == nil || w.memory == nil {
+		return err
+	}
+	return w.memory.finish(err)
+}
+
+// beginCall clears this instance's refusal from the previous call.
+func (i *pdfiumInstance) beginCall(phase string) {
+	if i == nil || i.worker == nil || i.worker.memory == nil {
+		return
+	}
+	i.worker.memory.begin(phase)
+}
+
+// finishCall snapshots a refusal from this call onto err.
+// The snapshot is a value, so it remains readable after the instance is closed.
+func (i *pdfiumInstance) finishCall(err error) error {
+	if i == nil || i.worker == nil {
+		return err
+	}
+	return i.worker.finishCall(err)
 }
